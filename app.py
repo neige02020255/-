@@ -102,6 +102,10 @@ st.markdown("""
         background-color: #181c24; padding: 20px; border-radius: 12px;
         border: 1px solid #2d3748; margin-bottom: 20px;
     }
+    .guide-box {
+        background-color: #1a2332; padding: 15px; border-radius: 10px;
+        border: 1px solid #2d4a6f; margin-bottom: 20px; font-size: 14px;
+    }
     h1, h2, h3, h4, h5, h6, p, span, label { color: #ffffff !important; }
     .stTextInput input, .stSelectbox div[data-baseweb="select"] {
         background-color: #2b2b2b !important; color: #ffffff !important; border-radius: 8px;
@@ -166,8 +170,28 @@ with col_logout:
 
 st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
+# ----------------- [시스템 사용법 안내 섹션] -----------------
+with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클릭하여 펼치기/접기)</b>", expanded=False):
+    st.markdown("""
+        <div class="guide-box">
+            <b>1. 🚀 출입 관리 및 현황 탭</b><br>
+            - <b>입영 등록</b>: 방문자 성명을 입력 후 '정보 불러오기'를 누르면 고정/임시 명단과 자동 연동됩니다. 출입 구분은 스크롤(셀렉트박스)로 선택 가능합니다.<br>
+            - <b>실시간 체류 관리</b>: 현재 체류 중인 인원을 5명씩 페이징으로 확인하고, 퇴영 시 [퇴영 처리] 버튼을 누를 수 있습니다.<br>
+            - <b>종합 현황판</b>: 오늘 총 입영, 현재 총 체류, 오늘 총 퇴영 인원과 세부 구역/구분별 통계를 실시간으로 파악할 수 있습니다.<br><br>
+            <b>2. 🏁 퇴영 목록 탭</b><br>
+            - 오늘 퇴영 완료된 인원 목록을 5명씩 페이징으로 확인하고 검색할 수 있습니다.<br>
+            - 하단에서 1주일이 지난 기록을 포함한 전체 누적 출입/이전 기록을 날짜별·이름별로 검색 및 조회할 수 있습니다.<br><br>
+            <b>3. 📋 고정출입자 명단 관리 탭</b><br>
+            - 영농인, 공사인원 등 고정 출입 대상자를 등록하고 관리합니다.<br><br>
+            <b>4. 📋 임시출입자 명단 관리 탭</b><br>
+            - 공문 등으로 사전 승인된 방문객을 등록하며, 설정한 종료일이 지나면 자동으로 만료 및 정리됩니다.<br><br>
+            <b>5. 🗺️ 구글 지도 연동 탭</b><br>
+            - 목적지나 작전 지역의 명칭을 검색하거나 빠른 바로가기 버튼을 통해 구글 지도로 실시간 위치를 확인할 수 있습니다.
+        </div>
+    """, unsafe_allow_html=True)
+
 # ----------------- [탭 메뉴 구성] -----------------
-tab1, tab2, tab3, tab4 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 구글 지도 연동"])
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
 with tab1:
@@ -252,7 +276,7 @@ with tab1:
                 dest = st.text_input("목적지", value=clean_val("목적지") or clean_val("방문사유"), placeholder="예: 북삼리 영농지")
             with col_f2:
                 zone = st.text_input("통제 구역", value=clean_val("통제구역") or clean_val("구역"), placeholder="예: A구역")
-                note = st.text_input("비고", value=clean_val("비고"), placeholder="특이사항 입력")
+                note = st.text_input("비고", value=clean_val("특이사항"), placeholder="특이사항 입력")
             
             submitted = st.form_submit_button("🚀 최종 입영 처리", use_container_width=True)
             if submitted:
@@ -444,22 +468,16 @@ with tab2:
     st.markdown("오늘 날짜 기준으로 퇴영이 완료된 인원들의 목록입니다. (한 페이지당 5명씩 표시)")
 
     today_str = get_kts_date()
-    
-    # 🔍 [추가됨] 오늘 퇴영 목록 전용 검색 기능
     today_out_query = st.text_input("🔍 오늘 퇴영 인원 검색", placeholder="성명, 연락처, 차량번호 입력", key="search_tab2_today_out")
 
-    # 오늘 퇴영된 인원 목록 추출 (역순 정렬)
     today_out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료" and row.get("날짜", today_str) == today_str]
     
-    # 검색어 필터링 적용
     if today_out_query:
         today_out_list = [(i, row) for i, row in today_out_list if today_out_query in str(row.get("성명", "")) or today_out_query in str(row.get("전화번호", "")) or today_out_query in str(row.get("차량", ""))]
 
     today_out_list.reverse()
-    
     total_out_count = len(today_out_list)
     
-    # 퇴영 인원 목록 페이징 처리 (5명씩)
     items_per_page_tout = 5
     total_pages_tout = (total_out_count - 1) // items_per_page_tout + 1 if total_out_count > 0 else 1
     
@@ -686,3 +704,39 @@ with tab4:
                     st.success("삭제되었습니다.")
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
+
+# ==================== [탭 5: 구글 지도 연동] ====================
+with tab5:
+    st.subheader("🗺️ 초소 및 작전 지역 구글 지도 연동")
+    st.markdown("원하시는 지역이나 목적지 명칭을 검색하여 구글 지도를 통해 실시간 위치 및 주변 지형을 파악할 수 있습니다.")
+
+    default_location = "연천군 민통선 초소"
+    map_search_query = st.text_input("📍 지도 검색어 입력 (지역, 목적지, 초소명 등)", value=default_location, placeholder="예: 연천군 북삼리, 비룡초소 등")
+
+    if map_search_query:
+        encoded_query = map_search_query.replace(" ", "+")
+        google_map_url = f"https://maps.google.com/maps?q={encoded_query}&t=&z=14&ie=UTF8&iwloc=&output=embed"
+
+        st.markdown(f"""
+            <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 15px;">
+                <iframe src="{google_map_url}" width="100%" height="500" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"<p style='text-align: right; color: #888; font-size: 13px; margin-top: 5px;'>현재 조회 위치: <b>{map_search_query}</b></p>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("##### 📌 빠른 지역 바로가기")
+    col_m1, col_m2, col_m3 = st.columns(3)
+    with col_m1:
+        if st.button("🛡️ 비룡부대 초소", use_container_width=True):
+            st.session_state.map_query_preset = "연천 비룡부대"
+            st.rerun()
+    with col_m2:
+        if st.button("🌾 북삼리 영농지", use_container_width=True):
+            st.session_state.map_query_preset = "연천군 미산면 북삼리"
+            st.rerun()
+    with col_m3:
+        if st.button("🚧 관할 통제구역", use_container_width=True):
+            st.session_state.map_query_preset = "연천군 민통선"
+            st.rerun()
