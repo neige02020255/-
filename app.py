@@ -49,7 +49,6 @@ def load_temp_members():
         except Exception:
             pass
     
-    # 오늘 날짜와 비교하여 기간이 지나지 않은 유효한 임시출입자만 남김
     today_str = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
     valid_list = [t for t in temp_list if t.get("종료일", "9999-12-31") >= today_str]
     
@@ -77,10 +76,6 @@ st.markdown("""
     .stat-card {
         background-color: #1b263b; padding: 15px; border-radius: 10px;
         text-align: center; border: 1px solid #415a77; margin-bottom: 10px;
-    }
-    .guide-box {
-        background-color: #1a1a2e; padding: 20px; border-radius: 10px;
-        border: 1px solid #16213e; margin-top: 30px; margin-bottom: 20px;
     }
     h1, h2, h3, h4, h5, h6, p, span, label { color: #ffffff !important; }
     .stTextInput input, .stSelectbox div[data-baseweb="select"] {
@@ -209,11 +204,15 @@ with tab1:
             final_name_val = st.session_state.temp_input_name if st.session_state.temp_input_name else m_data.get("성명", "")
             input_name = st.text_input("확인된 성명", value=final_name_val)
             
+            def clean_val(key):
+                val = m_data.get(key, "")
+                return "" if val == "-" or not val else val
+
             col_i1, col_i2 = st.columns(2)
             with col_i1:
-                birth_date = st.text_input("생년월일 (6자리)", value=m_data.get("생년월일", "-"), placeholder="예: 751225")
+                birth_date = st.text_input("생년월일 (6자리)", value=clean_val("생년월일"), placeholder="예: 751225")
             with col_i2:
-                phone = st.text_input("전화번호", value=m_data.get("전화번호", "-"), placeholder="예: 010-1234-5678")
+                phone = st.text_input("전화번호", value=clean_val("전화번호"), placeholder="예: 010-1234-5678")
                 
             default_type = m_data.get("출입구분", "영농인")
             preset_types = ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "임시방문", "기타"]
@@ -221,11 +220,11 @@ with tab1:
             
             col_f1, col_f2 = st.columns(2)
             with col_f1:
-                car = st.text_input("차종 및 차량번호", value=m_data.get("차량번호", m_data.get("차량", "")), placeholder="예: 12가3456")
-                dest = st.text_input("목적지", value=m_data.get("목적지", m_data.get("방문사유", "")), placeholder="예: 북삼리 영농지")
+                car = st.text_input("차종 및 차량번호", value=clean_val("차량번호") or clean_val("차량"), placeholder="예: 12가3456")
+                dest = st.text_input("목적지", value=clean_val("목적지") or clean_val("방문사유"), placeholder="예: 북삼리 영농지")
             with col_f2:
-                zone = st.text_input("통제 구역", value=m_data.get("통제구역", "-"), placeholder="예: A구역")
-                note = st.text_input("비고", value=m_data.get("비고", "-"), placeholder="특이사항 입력")
+                zone = st.text_input("통제 구역", value=clean_val("통제구역") or clean_val("구역"), placeholder="예: A구역")
+                note = st.text_input("비고", value=clean_val("비고"), placeholder="특이사항 입력")
             
             submitted = st.form_submit_button("🚀 최종 입영 처리", use_container_width=True)
             if submitted:
@@ -238,13 +237,13 @@ with tab1:
                         "출입시간": time_now,
                         "퇴영시간": "-",
                         "성명": final_name,
-                        "생년월일": birth_date if birth_date else "-",
-                        "전화번호": phone if phone else "-",
+                        "생년월일": birth_date.strip() if birth_date.strip() else "-",
+                        "전화번호": phone.strip() if phone.strip() else "-",
                         "출입구분": selected_type_preset,
-                        "차량": car if car else "-",
-                        "목적": dest if dest else "-",
-                        "구역": zone if zone else "-",
-                        "비고": note if note else "-",
+                        "차량": car.strip() if car.strip() else "-",
+                        "목적": dest.strip() if dest.strip() else "-",
+                        "구역": zone.strip() if zone.strip() else "-",
+                        "비고": note.strip() if note.strip() else "-",
                         "상태": "체류중"
                     }
                     st.session_state.visitors_log.append(new_entry)
@@ -329,17 +328,24 @@ with tab1:
                         st.rerun()
 
     st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
-    st.subheader("📈 종합 현황판 (현재 체류 인원)")
+    st.subheader("📈 종합 현황판 (체류 및 퇴영 현황)")
     
     all_staying = [r[1] if isinstance(r, tuple) else r for r in st.session_state.visitors_log if (r[1] if isinstance(r, tuple) else r).get("상태") == "체류중"]
     total_count = len(all_staying)
+    
+    all_out = [r for r in st.session_state.visitors_log if r.get("상태") == "퇴영완료"]
+    total_out_count = len(all_out)
 
     col_stat1, col_stat2 = st.columns([1, 2])
     with col_stat1:
         st.markdown(f"""
             <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
-                <p style="font-size: 32px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+            </div>
+            <div class="stat-card">
+                <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
             </div>
         """, unsafe_allow_html=True)
     with col_stat2:
@@ -350,14 +356,44 @@ with tab1:
             for row in all_staying:
                 type_counts[row.get("출입구분", "기타")] = type_counts.get(row.get("출입구분", "기타"), 0) + 1
                 zone_counts[row.get("구역", "미지정")] = zone_counts.get(row.get("구역", "미지정"), 0) + 1
-            st.markdown(f"🏷️ **구분별**: {' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()])}")
-            st.markdown(f"🛡️ **구역별**: {' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()])}")
+            st.markdown(f"🏷️ **체류 구분별**: {' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()])}")
+            st.markdown(f"🛡️ **체류 구역별**: {' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()])}")
+            
+        if total_out_count > 0:
+            out_type_counts = {}
+            for row in all_out:
+                out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
+            st.markdown(f"🏁 **퇴영 구분별**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}")
 
 # ==================== [탭 2: 퇴영 목록] ====================
 with tab2:
+    st.subheader("🏁 퇴영 완료된 기록 목록")
+    
+    out_all = [row for row in st.session_state.visitors_log if row.get("상태") == "퇴영완료"]
+    total_out_count = len(out_all)
+    
+    col_ot1, col_ot2 = st.columns([1, 2])
+    with col_ot1:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_ot2:
+        if total_out_count == 0:
+            st.info("오늘 퇴영 완료된 인원이 없습니다.")
+        else:
+            out_type_counts = {}
+            for row in out_all:
+                out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
+            st.markdown(f"<br>🏷️ **퇴영자 구분별 현황**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}", unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 20px 0; border-color: #333;'>", unsafe_allow_html=True)
+
     out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
     out_list.reverse()
-    st.subheader("🏁 퇴영 완료된 기록 목록")
+    
     if not out_list:
         st.info("💡 오늘 퇴영 완료된 기록이 없습니다.")
     else:
@@ -389,9 +425,14 @@ with tab3:
         if st.form_submit_button("➕ 고정 명단에 추가", use_container_width=True):
             if f_name.strip():
                 st.session_state.fixed_members.append({
-                    "성명": f_name.strip(), "생년월일": f_birth.strip() or "-", "전화번호": f_phone.strip() or "-",
-                    "출입구분": f_type, "차량번호": f_car.strip() or "-", "목적지": f_dest.strip() or "-",
-                    "통제구역": f_zone.strip() or "-", "비고": f_note.strip() or "-"
+                    "성명": f_name.strip(), 
+                    "생년월일": f_birth.strip() if f_birth.strip() else "-", 
+                    "전화번호": f_phone.strip() if f_phone.strip() else "-",
+                    "출입구분": f_type, 
+                    "차량번호": f_car.strip() if f_car.strip() else "-", 
+                    "목적지": f_dest.strip() if f_dest.strip() else "-",
+                    "통제구역": f_zone.strip() if f_zone.strip() else "-", 
+                    "비고": f_note.strip() if f_note.strip() else "-"
                 })
                 save_fixed_members(st.session_state.fixed_members)
                 st.success(f"✅ [{f_name.strip()}] 님 추가 완료!")
@@ -437,10 +478,10 @@ with tab4:
             if clean_t_name:
                 new_temp = {
                     "성명": clean_t_name,
-                    "생년월일": t_birth.strip() or "-",
-                    "전화번호": t_phone.strip() or "-",
+                    "생년월일": t_birth.strip() if t_birth.strip() else "-",
+                    "전화번호": t_phone.strip() if t_phone.strip() else "-",
                     "출입구분": "임시방문",
-                    "차량번호": t_car.strip() or "-",
+                    "차량번호": t_car.strip() if t_car.strip() else "-",
                     "방문사유": t_reason.strip() or "공문 승인 인원",
                     "시작일": t_start.strftime("%Y-%m-%d"),
                     "종료일": t_end.strftime("%Y-%m-%d"),
