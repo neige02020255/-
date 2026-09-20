@@ -1,8 +1,12 @@
 from datetime import datetime
+import urllib.parse
+import urllib.request
 import streamlit as st
 
 # ==================== [설정] ====================
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
+# 사용자님의 실제 구글 시트 ID
+SPREADSHEET_ID = "1Oz96c15XSnNWBzHRInFxH2ShMUp-IjeTJ0HOQVSeCzM"
 
 # 페이지 기본 설정
 st.set_page_config(page_title="민통초소 실시간 출입 관리", layout="centered")
@@ -57,7 +61,7 @@ with st.form("entry_form", clear_on_submit=True):
         else:
             time_now = datetime.now().strftime("%H:%M")
             
-            # 새로운 방문자 추가
+            # 화면에 표시될 목록에 추가
             st.session_state.visitors.append({
                 "type": v_type, 
                 "name": final_name, 
@@ -77,7 +81,10 @@ with st.form("entry_form", clear_on_submit=True):
                 </div>
             """, unsafe_allow_html=True)
             
-            st.success(f"🎉 [{final_name}] 님 입영 처리 완료되었습니다!")
+            # 사용자님이 만드신 구글 시트 바로가기 링크 안내 (클릭해서 시트 확인용)
+            sheet_link = f"https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit"
+            st.success(f"🎉 [{final_name}] 님 입영 처리 완료!")
+            st.markdown(f"👉 [여기서 구글 시트 열기]({sheet_link})", unsafe_allow_html=True)
 
 st.divider()
 
@@ -100,3 +107,4 @@ else:
                 st.session_state.visitors[idx]["status"] = "퇴영완료"
                 st.rerun()
         st.markdown("---")
+
