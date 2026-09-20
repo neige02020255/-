@@ -43,7 +43,6 @@ if "fixed_members" not in st.session_state:
 
 if "temp_members" not in st.session_state:
   loaded_temp = load_json(TEMP_FILE, [])
-  # 앱 실행 시 기간 만료된 임시출입자 자동 정리
   today_str = datetime.date.today().strftime("%Y-%m-%d")
   valid_temp = []
   for t in loaded_temp:
@@ -68,7 +67,7 @@ if not st.session_state.logged_in:
     password = st.text_input("비밀번호를 입력하세요", type="password")
     submit_btn = st.form_submit_button("로그인")
     if submit_btn:
-      if password == "1234":  # 필요 시 비밀번호 변경 가능
+      if password == "1234":
         st.session_state.logged_in = True
         st.rerun()
       else:
@@ -96,16 +95,22 @@ tab1, tab2, tab3, tab4 = st.tabs([
 with tab1:
   st.subheader("🚪 실시간 출입 관리")
 
-  # 고정 + 유효한 임시출입자 통합 선택 리스트 구성
+  # 고정 + 유효한 임시출입자 통합 선택 리스트 구성 (안전하게 .get 사용)
   all_available_options = []
   for f in st.session_state.fixed_members:
-    all_available_options.append(
-        f"[고정] {f['계급']} {f['이름']} ({f['군번']}, {f['소속']})"
-    )
+    rank = f.get("계급", "")
+    name = f.get("이름", "")
+    f_id = f.get("군번", "")
+    unit = f.get("소속", "")
+    all_available_options.append(f"[고정] {rank} {name} ({f_id}, {unit})")
+
   for t in st.session_state.temp_members:
+    t_name = t.get("이름", "")
+    t_start = t.get("시작일", "")
+    t_end = t.get("종료일", "")
+    t_reason = t.get("방문사유", "")
     all_available_options.append(
-        f"[임시] {t['이름']} (기간: {t['시작일']}~{t['종료일']}, 사유:"
-        f" {t['방문사유']})"
+        f"[임시] {t_name} (기간: {t_start}~{t_end}, 사유: {t_reason})"
     )
 
   with st.form("entry_form", clear_on_submit=True):
@@ -143,7 +148,6 @@ with tab1:
 
       now_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-      # 아카이브 기준(7일) 분기를 위해 날짜 분리 저장
       new_log = {
           "시간": now_time,
           "날짜": datetime.date.today().strftime("%Y-%m-%d"),
@@ -161,15 +165,12 @@ with tab1:
   st.markdown("---")
   st.subheader("📋 최근 7일 출입 현황 (메인)")
 
-  # 오늘 기준 7일 이내 기록만 메인에 표시
   today_date = datetime.date.today()
   seven_days_ago = today_date - datetime.timedelta(days=7)
 
   recent_logs = []
   for log in st.session_state.logs:
-    log_date_str = log.get(
-        "날짜", log["시간"][:10]
-    )  # 예전 로그 호환용 안전장치
+    log_date_str = log.get("날짜", log.get("시간", "2026-01-01")[:10])
     try:
       log_date = datetime.datetime.strptime(log_date_str, "%Y-%m-%d").date()
     except:
@@ -231,7 +232,6 @@ with tab2:
           f" {member.get('군번', '')}, 소속: {member.get('소속', '')})"
       )
     with cols[1]:
-      # 실수 방지 안전장치: 체크박스를 체크해야만 삭제 버튼 활성화
       confirm_del = st.checkbox("삭제 확인", key=f"chk_fixed_{idx}")
       if st.button("삭제", key=f"del_fixed_{idx}", disabled=not confirm_del):
         st.session_state.fixed_members.pop(idx)
@@ -252,9 +252,7 @@ with tab3:
       t_name = st.text_input("성명 / 업체명", placeholder="김민수 (공사업체)")
       t_reason = st.text_input("방문 사유 / 공문번호", placeholder="통신망 보수 공문")
     with t_col2:
-      t_start = st.date_input(
-          "출입 시작일", value=datetime.date.today()
-      )
+      t_start = st.date_input("출입 시작일", value=datetime.date.today())
       t_end = st.date_input(
           "출입 종료일",
           value=datetime.date.today() + datetime.timedelta(days=3),
@@ -284,8 +282,9 @@ with tab3:
       t_cols = st.columns([4, 1])
       with t_cols[0]:
         st.write(
-            f"🔸 **{t_mem['이름']}** | 사유: {t_mem['방문사유']} | 기간:"
-            f" {t_mem['시작일']} ~ {t_mem['종료일']}"
+            f"🔸 **{t_mem.get('이름', '')}** | 사유:"
+            f" {t_mem.get('방문사유', '')} | 기간: {t_mem.get('시작일', '')} ~"
+            f" {t_mem.get('종료일', '')}"
         )
       with t_cols[1]:
         if st.button("조기 삭제", key=f"del_temp_{idx}"):
@@ -311,7 +310,7 @@ with tab4:
   seven_days_ago = today_date - datetime.timedelta(days=7)
 
   for log in st.session_state.logs:
-    log_date_str = log.get("날짜", log["시간"][:10])
+    log_date_str = log.get("날짜", log.get("시간", "2026-01-01")[:10])
     try:
       log_date = datetime.datetime.strptime(log_date_str, "%Y-%m-%d").date()
     except:
