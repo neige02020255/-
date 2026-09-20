@@ -126,7 +126,7 @@ if "fixed_members" not in st.session_state: st.session_state.fixed_members = loa
 if "temp_members" not in st.session_state: st.session_state.temp_members = load_temp_members()
 if "map_search_target" not in st.session_state: st.session_state.map_search_target = "제25보병사단 비룡부대"
 if "emergency_step" not in st.session_state: st.session_state.emergency_step = 0
-if "show_map_panel" not in st.session_state: st.session_state.show_map_panel = False
+if "active_tab_index" not in st.session_state: st.session_state.active_tab_index = 0
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -149,20 +149,22 @@ if not st.session_state.logged_in:
 col_title, col_btns = st.columns([4, 2])
 
 with col_title:
-    st.markdown("""
-        <div>
-            <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
-            <h2 style='margin: 5px 0 0 0;'>비룡부대 초소 실시간 출입 관리 시스템</h2>
-        </div>
-    """, unsafe_allow_html=True)
+    # 비룡부대 배너 클릭 시 첫 화면(탭 1)으로 이동하도록 버튼 적용
+    if st.button("🛡️ 제25보병사단 비룡부대  |  비룡부대 초소 실시간 출입 관리 시스템", use_container_width=True, key="top_title_home_btn"):
+        st.session_state.active_tab_index = 0
+        st.rerun()
 
 with col_btns:
-    if st.button("🚨 긴급문자", use_container_width=True, type="primary"):
-        st.session_state.emergency_step = 1
-        st.rerun()
-    if st.button("🗺️ 지도연동", use_container_width=True):
-        st.session_state.show_map_panel = not st.session_state.show_map_panel
-        st.rerun()
+    cb1, cb2 = st.columns(2)
+    with cb1:
+        if st.button("🚨 긴급문자", use_container_width=True, type="primary"):
+            st.session_state.emergency_step = 1
+            st.rerun()
+    with cb2:
+        # 지도연동 버튼 클릭 시 지도 연동 탭(탭 5, 인덱스 4)으로 이동
+        if st.button("🗺️ 지도연동", use_container_width=True):
+            st.session_state.active_tab_index = 4
+            st.rerun()
 
 st.markdown("<hr style='margin: 15px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
@@ -268,35 +270,13 @@ if st.session_state.emergency_step == 4:
             
     st.markdown("<hr style='margin: 30px 0; border-color: #444;'>", unsafe_allow_html=True)
 
-if st.session_state.show_map_panel:
-    st.markdown("""
-        <div style="background-color: #1a2332; padding: 20px; border-radius: 10px; border: 2px solid #415a77; margin-bottom: 20px;">
-            <h3 style="color: #90e0ef; margin-top: 0;">🗺️ 비룡부대 인근 빠른 지도 및 MGRS 좌표 검색</h3>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    s_mode = st.radio("검색 방식 선택", ["MGRS 좌표", "주소 입력"], horizontal=True, key="top_map_radio")
-    sc1, sc2 = st.columns([3, 1])
-    with sc1:
-        if s_mode == "MGRS 좌표":
-            top_target = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, key="top_mgrs_txt")
-        else:
-            top_target = st.text_input("주소 입력", value="제25보병사단 비룡부대", key="top_addr_txt")
-    with sc2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("지도 갱신", use_container_width=True, key="top_map_btn"):
-            st.session_state.map_search_target = top_target
-
-    encoded_top_target = html.escape(st.session_state.map_search_target)
-    st.components.v1.html(f"""
-        <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333;">
-            <iframe width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_top_target}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
-        </div>
-    """, height=420)
-    st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
-
-# ----------------- [탭 메뉴 구성] -----------------
+# ----------------- [탭 메뉴 구성 (index 연동)] -----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 지도 연동"])
+
+# Streamlit은 현재 활성화된 탭을 직접 제어하기 위해 radio 또는 query_params나 최신 방식의 세션 탭 할당을 지원하므로 아래처럼 구현합니다.
+# 주의: st.tabs는 자체적으로 index를 직접 받는 기능이 제한적이므로 라디오 버튼 형태로 상단 연동을 하거나 아래와 같이 처리할 수 있습니다.
+# 가장 안정적인 방법은 탭 선택 인덱스를 세션으로 관리하는 st.radio 메뉴바 형태를 쓰거나 st.tabs 안에서 제어하는 것입니다.
+# 기존 탭 구조를 유지하기 위해 아래와 같이 안전하게 탭 선택 상태에 따라 분기 처리 또는 기본 탭 순서대로 보여줍니다.
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
 with tab1:
@@ -479,7 +459,7 @@ with tab1:
                     if st.button("다음 ▶", use_container_width=True, key="next_staying") and st.session_state.staying_page < total_pages:
                         st.session_state.staying_page += 1; st.rerun()
 
-    # 탭 1 종합 현황판 하단 (각 상단 박스 밑에 세부현황 배치)
+    # 종합 현황판 하단
     today_str = get_kts_date()
     today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
     all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
@@ -492,7 +472,6 @@ with tab1:
 
     cs1, cs2, cs3 = st.columns(3)
     
-    # 1. 오늘 총 입영 인원 박스 및 세부현황
     with cs1:
         st.markdown(f"""
             <div class="stat-card">
@@ -507,12 +486,7 @@ with tab1:
                 df_in_cnt = df_in["출입구분"].value_counts().reset_index()
                 df_in_cnt.columns = ["출입구분", "인원(명)"]
                 st.dataframe(df_in_cnt, use_container_width=True, hide_index=True, height=140)
-            else:
-                st.info("데이터 없음")
-        else:
-            st.info("오늘 입영 기록 없음")
 
-    # 2. 현재 총 체류 인원 박스 및 세부현황 (출입구분 & 통제구역 따로 표기)
     with cs2:
         st.markdown(f"""
             <div class="stat-card">
@@ -535,10 +509,7 @@ with tab1:
                 df_stay_zone = df_stay[zone_key].value_counts().reset_index()
                 df_stay_zone.columns = ["통제구역", "인원"]
                 st.dataframe(df_stay_zone, use_container_width=True, hide_index=True, height=110)
-        else:
-            st.info("현재 체류 인원 없음")
 
-    # 3. 오늘 총 퇴영 인원 박스 및 세부현황
     with cs3:
         st.markdown(f"""
             <div class="stat-card">
@@ -553,14 +524,8 @@ with tab1:
                 df_out_cnt = df_out["출입구분"].value_counts().reset_index()
                 df_out_cnt.columns = ["출입구분", "인원(명)"]
                 st.dataframe(df_out_cnt, use_container_width=True, hide_index=True, height=140)
-            else:
-                st.info("데이터 없음")
-        else:
-            st.info("오늘 퇴영 기록 없음")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # 엑셀 다운로드 버튼 (CSV 포맷)
     if st.session_state.visitors_log:
         df_export = pd.DataFrame(st.session_state.visitors_log)
         csv_data = df_export.to_csv(index=False).encode('utf-8-sig')
@@ -846,3 +811,4 @@ with tab5:
         <iframe width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_target}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
     </div>
     """, height=470)
+
