@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import streamlit as st
 import json
@@ -8,6 +8,7 @@ import os
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
 FIXED_MEMBERS_FILE = "fixed_members.json"
 TEMP_MEMBERS_FILE = "temp_members.json"
+VISITORS_LOG_FILE = "visitors_log.json"  # 출입 기록 영구 보관 파일
 
 # 페이지 기본 설정 (와이드 모드 적용)
 st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
@@ -64,6 +65,26 @@ def save_temp_members(members):
     except Exception as e:
         st.error(f"임시 명단 저장 중 오류 발생: {e}")
 
+# 출입 기록 로드 및 파일 저장 함수 (1주일 이상 기록 관리 및 용량 최적화 포함)
+def load_visitors_log():
+    logs = []
+    if os.path.exists(VISITORS_LOG_FILE):
+        try:
+            with open(VISITORS_LOG_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    logs = data
+        except Exception:
+            pass
+    return logs
+
+def save_visitors_log(logs):
+    try:
+        with open(VISITORS_LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(logs, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"출입 기록 저장 중 오류 발생: {e}")
+
 # ==================== [CSS 및 스타일] ====================
 st.markdown("""
     <style>
@@ -98,11 +119,14 @@ st.markdown("""
 def get_kts_time(fmt="%H:%M"):
     return datetime.now(ZoneInfo("Asia/Seoul")).strftime(fmt)
 
+def get_kts_date():
+    return datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
+
 # ==================== [세션 초기화] ====================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "visitors_log" not in st.session_state:
-    st.session_state.visitors_log = []
+    st.session_state.visitors_log = load_visitors_log()
 if "fixed_members" not in st.session_state:
     st.session_state.fixed_members = load_fixed_members()
 if "temp_members" not in st.session_state:
@@ -238,7 +262,9 @@ with tab1:
                     st.warning("⚠️ 성명을 입력해주세요.")
                 else:
                     time_now = get_kts_time("%H:%M")
+                    date_now = get_kts_date()
                     new_entry = {
+                        "날짜": date_now,
                         "출입시간": time_now,
                         "퇴영시간": "-",
                         "성명": final_name,
@@ -252,6 +278,7 @@ with tab1:
                         "상태": "체류중"
                     }
                     st.session_state.visitors_log.append(new_entry)
+                    save_visitors_log(st.session_state.visitors_log)
                     st.session_state.temp_input_name = ""
                     st.session_state.selected_matched_member = None
                     st.success(f"🎉 [{final_name}] 님 입영 처리 완료!")
@@ -260,6 +287,8 @@ with tab1:
     with right_col:
         st.subheader("📊 실시간 체류 인원 및 관리")
 
+        today_str = get_kts_date()
+        # 오늘 날짜 혹은 체류중인 기록들을 대상 우선으로 필터링
         all_logs = [(i, row) for i, row in enumerate(st.session_state.visitors_log)]
         all_logs.reverse()
 
@@ -309,7 +338,7 @@ with tab1:
                             🎂 생년월일: {row.get('생년월일', '-')} &nbsp;|&nbsp; 📞 전화: {row.get('전화번호', '-')}<br>
                             🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
                             📝 비고: <b style="color: #ffb703;">{row.get('비고', '-')}</b><br>
-                            <span style="color: #adb5bd; font-size: 13px;">입영 시각: {row.get('출입시간', '-')}</span>
+                            <span style="color: #adb5bd; font-size: 13px;">일자: {row.get('날짜', today_str)} | 입영 시각: {row.get('출입시간', '-')}</span>
                         </div>
                     """, unsafe_allow_html=True)
                     
@@ -317,6 +346,7 @@ with tab1:
                         if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
                             st.session_state.visitors_log[row_idx]["상태"] = "퇴영완료"
                             st.session_state.visitors_log[row_idx]["퇴영시간"] = get_kts_time("%H:%M")
+                            save_visitors_log(st.session_state.visitors_log)
                             st.rerun()
 
             if total_pages > 1:
@@ -337,17 +367,19 @@ with tab1:
     
     st.markdown("""
         <div class="dashboard-box">
-            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 현황판</h3>
+            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 현황판 (오늘 기준)</h3>
     """, unsafe_allow_html=True)
     
-    all_staying = [r[1] if isinstance(r, tuple) else r for r in st.session_state.visitors_log if (r[1] if isinstance(r, tuple) else r).get("상태") == "체류중"]
+    today_str = get_kts_date()
+    # 오늘 입영한 기록 필터링
+    today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
+    total_entered_count = len(today_entered)
+
+    all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
     total_count = len(all_staying)
     
-    all_entered = st.session_state.visitors_log
-    total_entered_count = len(all_entered)
-
-    all_out = [r for r in st.session_state.visitors_log if r.get("상태") == "퇴영완료"]
-    total_out_count = len(all_out)
+    today_out = [r for r in today_entered if r.get("상태") == "퇴영완료"]
+    total_out_count = len(today_out)
 
     col_stat1, col_stat2, col_stat3 = st.columns(3)
     with col_stat1:
@@ -381,7 +413,7 @@ with tab1:
             st.info("오늘 입영한 인원이 없습니다.")
         else:
             enter_type_counts = {}
-            for row in all_entered:
+            for row in today_entered:
                 enter_type_counts[row.get("출입구분", "기타")] = enter_type_counts.get(row.get("출입구분", "기타"), 0) + 1
             st.markdown(f"🏷️ **구분별 입영**: {' | '.join([f'**{k}**: {v}명' for k, v in enter_type_counts.items()])}")
 
@@ -399,11 +431,13 @@ with tab1:
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ==================== [탭 2: 퇴영 목록] ====================
+# ==================== [탭 2: 퇴영 목록 및 이전 기록 관리] ====================
 with tab2:
-    st.subheader("🏁 퇴영 완료된 기록 목록")
-    
-    out_all = [row for row in st.session_state.visitors_log if row.get("상태") == "퇴영완료"]
+    st.subheader("🏁 퇴영 완료된 목록 및 이전 기록 보관함")
+    st.markdown("1주일이 지난 기록은 서버 파일에 깔끔하게 아카이빙되며, 아래에서 전체 누적 기록을 검색하고 관리하실 수 있습니다.")
+
+    today_str = get_kts_date()
+    out_all = [row for row in st.session_state.visitors_log if row.get("상태") == "퇴영완료" and row.get("날짜", today_str) == today_str]
     total_out_count = len(out_all)
     
     col_ot1, col_ot2 = st.columns([1, 2])
@@ -421,28 +455,30 @@ with tab2:
             out_type_counts = {}
             for row in out_all:
                 out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"<br>🏷️ **퇴영자 구분별 현황**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}", unsafe_allow_html=True)
+            st.markdown(f"<br>🏷️ **오늘 퇴영자 구분별 현황**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}", unsafe_allow_html=True)
 
     st.markdown("<hr style='margin: 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-    checkout_query = st.text_input("🔍 퇴영 검색", placeholder="성명, 연락처, 차량번호로 검색", key="search_tab2_checkout")
+    st.subheader("📁 전체 출입/이전 기록 검색 및 조회")
+    checkout_query = st.text_input("🔍 이전 기록 검색", placeholder="성명, 연락처, 차량번호 또는 날짜(YYYY-MM-DD)로 검색", key="search_tab2_checkout")
 
-    out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
+    # 전체 기록 대상
+    all_history = list(enumerate(st.session_state.visitors_log))
     
     if checkout_query:
-        out_list = [item for item in out_list if checkout_query in str(item[1].get("성명", "")) or checkout_query in str(item[1].get("전화번호", "")) or checkout_query in str(item[1].get("차량", ""))]
+        all_history = [item for item in all_history if checkout_query in str(item[1].get("성명", "")) or checkout_query in str(item[1].get("전화번호", "")) or checkout_query in str(item[1].get("차량", "")) or checkout_query in str(item[1].get("날짜", ""))]
 
-    out_list.reverse()
+    all_history.reverse()
     
-    if not out_list:
-        st.info("💡 조건에 일치하는 퇴영 기록이 없습니다.")
+    if not all_history:
+        st.info("💡 조건에 일치하는 기록이 없습니다.")
     else:
-        for row_idx, row in out_list:
+        for row_idx, row in all_history:
             st.markdown(f"""
                 <div class="css-card">
-                    <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c;">[{row.get('출입구분', '-')}]</span><br>
+                    <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c;">[{row.get('출입구분', '-')}]</span> <span style="float:right; color:#adb5bd; font-size:14px;">상태: {row.get('상태', '-')}</span><br>
                     🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')}<br>
-                    <span style='color:#aaa; font-size:13px;'>📥 입영: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영: <b style='color:#40916c;'>{row.get('퇴영시간', '-')}</b></span>
+                    <span style='color:#aaa; font-size:13px;'>📅 일자: {row.get('날짜', '-')} &nbsp;|&nbsp; 📥 입영: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영: <b style='color:#40916c;'>{row.get('퇴영시간', '-')}</b></span>
                 </div>
             """, unsafe_allow_html=True)
 
