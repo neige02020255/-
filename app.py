@@ -13,31 +13,30 @@ st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", la
 # ==================== [커스텀 CSS 디자인 스타일] ====================
 st.markdown("""
     <style>
-    /* 전체 배경 및 폰트 부드러운 느낌 부여 */
     .stApp {
-        background-color: #f8f9fa;
+        background-color: #f4f6f5;
     }
-    
-    /* 카드 박스 스타일 */
     .css-card {
         background-color: white;
-        padding: 20px;
+        padding: 18px;
         border-radius: 12px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        margin-bottom: 15px;
+        margin-bottom: 12px;
         border-left: 5px solid #2d6a4f;
     }
-    
-    /* 헤더 타이틀 강조 */
     h1, h2, h3 {
         font-family: 'Malgun Gothic', sans-serif;
         color: #1b4332;
     }
-    
-    /* 버튼 디자인 예쁘게 */
-    .stButton>button {
+    .badge-box {
+        background-color: #2d6a4f;
+        color: white;
+        padding: 8px 15px;
         border-radius: 8px;
         font-weight: bold;
+        display: inline-block;
+        font-size: 16px;
+        margin-bottom: 5px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -66,15 +65,13 @@ if not st.session_state.logged_in:
 
 # ==================== [메인 출입 관리 화면] ====================
 
-# 상단 헤더 (25사단 부대마크 이미지와 타이틀 배치)[span_0](start_span)[span_0](end_span)
-col_logo, col_header = st.columns([1, 6])
-with col_logo:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/ROKA_25th_Infantry_Division_Insignia.svg/200px-ROKA_25th_Infantry_Division_Insignia.svg.png", width=65)
-with col_header:
-    st.markdown("### **제25보병사단 비룡초소**")
-    st.markdown("<p style='color: #555; margin-top: -15px; font-size: 14px;'>민통선 출입통제 실시간 통합 시스템</p>", unsafe_allow_html=True)
+st.markdown("""
+    <div>
+        <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
+        <h2 style='margin: 5px 0 0 0; color: #1b4332;'>민통초소 실시간 출입 관리 시스템</h2>
+    </div>
+""", unsafe_allow_html=True)
 
-# 로그아웃 버튼
 col_space, col_logout = st.columns([4, 1])
 with col_logout:
     if st.button("🚪 로그아웃", use_container_width=True):
@@ -106,23 +103,22 @@ with st.container():
                 st.warning("⚠️ 성명을 입력해주세요.")
             else:
                 time_now = datetime.now().strftime("%H:%M")
+                # 구글 시트 헤더 컬럼명과 정확히 일치하도록 페이로드 수정 완료
                 payload = {
-                    "time": time_now,
-                    "type": v_type,
-                    "name": final_name,
-                    "car": car if car else "-",
-                    "dest": dest if dest else "-",
-                    "zone": zone if zone else "-",
-                    "status": "체류중"
+                    "시간": time_now,
+                    "소속": v_type,
+                    "성명": final_name,
+                    "차량": car if car else "-",
+                    "목적": dest if dest else "-",
+                    "구역": zone if zone else "-",
+                    "상태": "체류중"
                 }
                 
-                # 구글 시트로 데이터 전송
                 try:
                     requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
                 except Exception:
                     pass
                 
-                # 강조 팝업 알림
                 st.markdown(f"""
                     <div style="background-color: #2d6a4f; color: white; padding: 18px; border-radius: 10px; text-align: center; font-size: 18px; font-weight: bold; margin: 15px 0;">
                         🚨 [입영 완료] {final_name} ({v_type})<br>
@@ -132,7 +128,7 @@ with st.container():
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 2. 현재 체류 현황 섹션
+# 2. 현재 체류 현황 및 검색 섹션
 st.subheader("📊 현재 체류 중인 출입자 현황")
 
 visitors_data = []
@@ -142,35 +138,55 @@ try:
 except Exception:
     visitors_data = []
 
+# 체류 중인 항목만 필터링 (행 번호와 함께)
 staying_list = [(i+2, row) for i, row in enumerate(visitors_data) if row.get("상태") == "체류중"]
 
 if not staying_list:
     st.info("💡 현재 초소 통제구역 내 체류 중인 인원이 없습니다.")
 else:
-    for row_idx, row in staying_list:
-        with st.container():
-            st.markdown(f"""
-                <div class="css-card">
-                    <b>[{row.get('소속', '-')}] {row.get('성명', '-')}</b><br>
-                    🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
-                    <span style="color: #6c757d; font-size: 13px;">입영 시각: {row.get('시간', '-')}</span>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # 퇴영 버튼
-            if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
-                try:
-                    payload = {
-                        "time": row.get('시간', '-'),
-                        "type": row.get('소속', '-'),
-                        "name": row.get('성명', '-'),
-                        "car": row.get('차량', '-'),
-                        "dest": row.get('목적', '-'),
-                        "zone": row.get('구역', '-'),
-                        "status": "퇴영완료"
-                    }
-                    requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
-                except Exception:
-                    pass
-                st.rerun()
+    # 🔍 400명 대규모 인원에 대비한 실시간 검색 입력창 추가
+    search_query = st.text_input("🔍 출입자 검색 (성명 또는 차량번호 입력)", placeholder="이름이나 차량번호를 입력하면 바로 찾아줍니다")
+    
+    # 검색어가 있으면 필터링
+    if search_query:
+        filtered_list = []
+        for idx, row in staying_list:
+            name_val = str(row.get("성명", ""))
+            car_val = str(row.get("차량", ""))
+            if search_query in name_val or search_query in car_val:
+                filtered_list.append((idx, row))
+        display_list = filtered_list
+    else:
+        display_list = staying_list
 
+    st.markdown(f"<p style='color: #666; font-size: 14px;'>총 체류 인원: <b>{len(staying_list)}명</b> (검색 결과: {len(display_list)}명)</p>", unsafe_allow_html=True)
+
+    if not display_list:
+        st.warning("🔍 검색 결과가 없습니다.")
+    else:
+        for row_idx, row in display_list:
+            with st.container():
+                st.markdown(f"""
+                    <div class="css-card">
+                        <b>[{row.get('소속', '-')}] {row.get('성명', '-')}</b><br>
+                        🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
+                        <span style="color: #6c757d; font-size: 13px;">입영 시각: {row.get('시간', '-')}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # 퇴영 처리 버튼
+                if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
+                    try:
+                        payload = {
+                            "시간": row.get('시간', '-'),
+                            "소속": row.get('소속', '-'),
+                            "성명": row.get('성명', '-'),
+                            "차량": row.get('차량', '-'),
+                            "목적": row.get('목적', '-'),
+                            "구역": row.get('구역', '-'),
+                            "상태": "퇴영완료"
+                        }
+                        requests.post(APPS_SCRIPT_URL, json=payload, timeout=5)
+                    except Exception:
+                        pass
+                    st.rerun()
