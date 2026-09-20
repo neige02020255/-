@@ -5,10 +5,10 @@ import streamlit as st
 # ==================== [설정] ====================
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
 
-# 페이지 기본 설정 (와이드 모드 적용으로 좌우 공간 활용 극대화)
+# 페이지 기본 설정 (와이드 모드 적용)
 st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
 
-# ==================== [다크모드 CSS 디자인 스타일] ====================
+# ==================== [다크모드 CSS 및 버튼 글자 크기 확대 스타일] ====================
 st.markdown("""
     <style>
     .stApp {
@@ -50,6 +50,13 @@ st.markdown("""
         font-size: 16px;
         margin-bottom: 5px;
     }
+    /* 버튼 글자 크기 키우기 및 터치 영역 확보 */
+    .stButton button {
+        font-size: 18px !important;
+        font-weight: bold !important;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -67,9 +74,9 @@ if "visitors_log" not in st.session_state:
 # ==================== [초기 고정출입자 대량 생성] ====================
 if "fixed_members" not in st.session_state:
     initial_members = [
-        {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역"},
-        {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사인원", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역"},
-        {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역"}
+        {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역", "비고": "특이사항 없음"},
+        {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사인원", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역", "비고": "장비 지참"},
+        {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역", "비고": "공무 출장"}
     ]
     
     last_names = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권", "황", "안", "송", "전", "홍"]
@@ -80,7 +87,7 @@ if "fixed_members" not in st.session_state:
     import random
     random.seed(42)
     
-    for i in range(1, 50):
+    for i in range(1, 40):
         l_name = random.choice(last_names)
         f_name = random.choice(first_names)
         full_name = f"{l_name}{f_name}"
@@ -99,7 +106,8 @@ if "fixed_members" not in st.session_state:
             "출입구분": v_type,
             "차량번호": car_num,
             "목적지": f"{zone} 일대 영농/작업",
-            "통제구역": zone
+            "통제구역": zone,
+            "비고": "-"
         })
         
     st.session_state.fixed_members = initial_members
@@ -141,10 +149,42 @@ st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_al
 # ----------------- [탭 메뉴 구성] -----------------
 tab1, tab2, tab3 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리"])
 
-# ==================== [탭 1: 출입 관리 및 현황 (2단 레이아웃 적용)] ====================
+# ==================== [탭 1: 출입 관리 및 현황] ====================
 with tab1:
-    # 전체 화면을 좌우 2분할 (왼쪽: 입력/체류목록, 오른쪽: 체류인원 종합 통계)
-    left_col, right_col = st.columns([1.2, 1], gap="large")
+    # 상단 종합 현황판
+    st.subheader("📈 종합 현황판 (현재 체류 인원)")
+    
+    all_staying = [row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
+    total_count = len(all_staying)
+
+    col_stat1, col_stat2 = st.columns([1, 2])
+    with col_stat1:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_stat2:
+        if total_count == 0:
+            st.info("현재 체류 중인 인원이 없습니다.")
+        else:
+            type_counts = {}
+            zone_counts = {}
+            for row in all_staying:
+                v_t = row.get("출입구분", "기타")
+                zone = row.get("구역", "미지정")
+                type_counts[v_t] = type_counts.get(v_t, 0) + 1
+                zone_counts[zone] = zone_counts.get(zone, 0) + 1
+            
+            t_str = " | ".join([f"**{k}**: {v}명" for k, v in type_counts.items()])
+            z_str = " | ".join([f"**{k}**: {v}명" for k, v in zone_counts.items()])
+            st.markdown(f"🏷️ **구분별**: {t_str}")
+            st.markdown(f"🛡️ **구역별**: {z_str}")
+
+    st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
+
+    left_col, right_col = st.columns([1, 1], gap="large")
 
     with left_col:
         st.subheader("📝 출입자 등록 (입영)")
@@ -162,7 +202,7 @@ with tab1:
                 typed_name = st.text_input("성명 입력", placeholder="이름 입력 후 버튼 클릭", value=st.session_state.temp_input_name)
             with col_nc2:
                 st.markdown("<br>", unsafe_allow_html=True)
-                name_check_btn = st.form_submit_button("🔍 불러오기", use_container_width=True)
+                name_check_btn = st.form_submit_button("🔍 정보 불러오기", use_container_width=True)
 
             if name_check_btn:
                 st.session_state.temp_input_name = typed_name.strip()
@@ -208,8 +248,11 @@ with tab1:
             with col_i2:
                 phone = st.text_input("전화번호", value=m_data.get("전화번호", ""), placeholder="예: 010-1234-5678")
                 
-            # 출입구분: 직접 타이핑할 수 있도록 text_input 사용 (기존 연동된 값이 있으면 기본값으로 제공)
-            v_type = st.text_input("출입 구분 (직접 입력 가능)", value=m_data.get("출입구분", "영농인"), placeholder="예: 영농인, 공사인원, 군인 등")
+            default_type = m_data.get("출입구분", "영농인")
+            preset_types = ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "기타"]
+            
+            selected_type_preset = st.selectbox("출입 구분 (선택)", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
+            custom_type = st.text_input("출입 구분 직접 수정 (필요시 입력)", value=selected_type_preset)
             
             col_f1, col_f2 = st.columns(2)
             with col_f1:
@@ -217,7 +260,7 @@ with tab1:
                 dest = st.text_input("목적지", value=m_data.get("목적지", ""), placeholder="예: 북삼리 영농지")
             with col_f2:
                 zone = st.text_input("통제 구역", value=m_data.get("통제구역", ""), placeholder="예: A구역")
-                st.markdown("<br>", unsafe_allow_html=True)
+                note = st.text_input("비고", value=m_data.get("비고", ""), placeholder="특이사항 입력")
             
             submitted = st.form_submit_button("🚀 최종 입영 처리", use_container_width=True)
             if submitted:
@@ -232,10 +275,11 @@ with tab1:
                         "성명": final_name,
                         "생년월일": birth_date if birth_date else "-",
                         "전화번호": phone if phone else "-",
-                        "출입구분": v_type.strip() if v_type.strip() else "기타",
+                        "출입구분": custom_type.strip() if custom_type.strip() else "영농인",
                         "차량": car if car else "-",
                         "목적": dest if dest else "-",
                         "구역": zone if zone else "-",
+                        "비고": note if note else "-",
                         "상태": "체류중"
                     }
                     st.session_state.visitors_log.append(new_entry)
@@ -244,13 +288,11 @@ with tab1:
                     st.success(f"🎉 [{final_name}] 님 입영 처리 완료!")
                     st.rerun()
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("---")
+    with right_col:
         st.subheader("📊 현재 체류 인원 목록 (최신순)")
 
-        # 체류 중인 항목 추출 (최신 등록된 항목이 위로 오도록 역순 정렬)
         staying_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
-        staying_list.reverse()  # 최신순 정렬
+        staying_list.reverse()
 
         if not staying_list:
             st.info("💡 현재 초소 통제구역 내 체류 중인 인원이 없습니다.")
@@ -275,15 +317,31 @@ with tab1:
             else:
                 display_list = staying_list
 
-            st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 체류: <b>{len(staying_list)}명</b></p>", unsafe_allow_html=True)
+            # --- 15명씩 페이지네이션 적용 ---
+            items_per_page = 15
+            total_items = len(display_list)
+            total_pages = (total_items - 1) // items_per_page + 1 if total_items > 0 else 1
+            
+            if "staying_page" not in st.session_state:
+                st.session_state.staying_page = 1
+            
+            if st.session_state.staying_page > total_pages:
+                st.session_state.staying_page = max(1, total_pages)
 
-            for row_idx, row in display_list:
+            st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 체류: <b>{total_items}명</b> (페이지 {st.session_state.staying_page}/{total_pages})</p>", unsafe_allow_html=True)
+
+            start_idx = (st.session_state.staying_page - 1) * items_per_page
+            end_idx = start_idx + items_per_page
+            current_page_items = display_list[start_idx:end_idx]
+
+            for row_idx, row in current_page_items:
                 with st.container():
                     st.markdown(f"""
                         <div class="css-card">
                             <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c; font-weight:bold;">[{row.get('출입구분', '-')}]</span><br>
                             🎂 생년월일: {row.get('생년월일', '-')} &nbsp;|&nbsp; 📞 전화: {row.get('전화번호', '-')}<br>
                             🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
+                            📝 비고: <b style="color: #ffb703;">{row.get('비고', '-')}</b><br>
                             <span style="color: #adb5bd; font-size: 13px;">입영 시각: {row.get('출입시간', '-')}</span>
                         </div>
                     """, unsafe_allow_html=True)
@@ -293,60 +351,60 @@ with tab1:
                         st.session_state.visitors_log[row_idx]["퇴영시간"] = get_kts_time("%H:%M")
                         st.rerun()
 
-    # 오른쪽 빈 공간: 체류인원 종합 현황판 배치
-    with right_col:
-        st.subheader("📈 [우측 종합] 체류 인원 현황판")
-        st.markdown("현재 통제구역 내에 있는 인원의 종합 통계입니다.")
-        
-        all_staying = [row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
-        total_count = len(all_staying)
-
-        # 상단 핵심 지표 카드
-        st.markdown(f"""
-            <div class="stat-card">
-                <h3 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h3>
-                <p style="font-size: 36px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("#### 🏷️ 출입 구분별 체류 현황")
-        
-        if total_count == 0:
-            st.info("현재 체류 중인 인원이 없어 통계가 표시되지 않습니다.")
-        else:
-            # 출입 구분별 카운트 계산
-            type_counts = {}
-            zone_counts = {}
-            for row in all_staying:
-                v_t = row.get("출입구분", "기타")
-                zone = row.get("구역", "미지정")
-                type_counts[v_t] = type_counts.get(v_t, 0) + 1
-                zone_counts[zone] = zone_counts.get(zone, 0) + 1
-
-            st.markdown("##### 📌 구분별 인원")
-            for t_name, count in type_counts.items():
-                st.markdown(f"- **{t_name}**: `{count}명`")
-
-            st.markdown("##### 🛡️ 통제구역별 인원")
-            for z_name, count in zone_counts.items():
-                st.markdown(f"- **{z_name}**: `{count}명`")
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("---")
-        st.markdown("#### ⚡ 실시간 바로가기 팁")
-        st.markdown("""
-        - 왼쪽 화면에서 이름을 입력하고 정보를 불러오거나 신규 등록할 수 있습니다.
-        - 체류 목록은 **가장 최근에 입영한 사람**이 맨 위에 표시됩니다.
-        - 퇴영이 완료된 인원은 상단탭의 **[퇴영 목록]**에서 확인하실 수 있습니다.
-        """)
+            # 페이지 이동 버튼 컨트롤
+            if total_pages > 1:
+                col_p1, col_p2, col_p3 = st.columns([1, 2, 1])
+                with col_p1:
+                    if st.button("◀ 이전", use_container_width=True, key="prev_staying"):
+                        if st.session_state.staying_page > 1:
+                            st.session_state.staying_page -= 1
+                            st.rerun()
+                with col_p2:
+                    st.markdown(f"<p style='text-align: center; margin-top: 10px;'>{st.session_state.staying_page} / {total_pages}</p>", unsafe_allow_html=True)
+                with col_p3:
+                    if st.button("다음 ▶", use_container_width=True, key="next_staying"):
+                        if st.session_state.staying_page < total_pages:
+                            st.session_state.staying_page += 1
+                            st.rerun()
 
 # ==================== [탭 2: 퇴영 목록] ====================
 with tab2:
-    st.subheader("🏁 [퇴영 목록] 초소 통과 완료된 기록")
-    st.markdown("오늘 초소를 통과하여 퇴영 완료된 인원의 기록을 조회합니다.")
+    st.subheader("📈 종합 현황판 (퇴영 완료 및 남은 체류 인원)")
 
     out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
-    out_list.reverse() # 퇴영 목록도 최근 순으로
+    out_list.reverse()
+    total_out_count = len(out_list)
+    current_staying_count = len([row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"])
+
+    col_osat1, col_osat2, col_osat3 = st.columns([1, 1, 2])
+    with col_osat1:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#90e0ef;">총 퇴영 완료</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_osat2:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#ffb703;">현재 남은 체류</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{current_staying_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_osat3:
+        if total_out_count == 0:
+            st.info("오늘 퇴영 완료된 인원이 없습니다.")
+        else:
+            out_type_counts = {}
+            for row in out_list:
+                v_t = row.get("출입구분", "기타")
+                out_type_counts[v_t] = out_type_counts.get(v_t, 0) + 1
+            
+            ot_str = " | ".join([f"**{k}**: {v}명" for k, v in out_type_counts.items()])
+            st.markdown(f"<br>🏷️ **퇴영 구분별 통계**: {ot_str}", unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
+    st.subheader("🏁 퇴영 완료된 기록 목록")
 
     if not out_list:
         st.info("💡 오늘 퇴영 완료된 기록이 없습니다.")
@@ -369,16 +427,48 @@ with tab2:
         if out_search:
             display_out_list = [(idx, row) for idx, row in out_list if out_search in str(row.get("성명", "")) or out_search in str(row.get("차량", ""))]
 
-        st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 퇴영 기록: <b>{len(out_list)}명</b></p>", unsafe_allow_html=True)
+        # --- 퇴영 목록 15명씩 페이지네이션 적용 ---
+        out_items_per_page = 15
+        total_out_items = len(display_out_list)
+        total_out_pages = (total_out_items - 1) // out_items_per_page + 1 if total_out_items > 0 else 1
+        
+        if "out_page" not in st.session_state:
+            st.session_state.out_page = 1
+        
+        if st.session_state.out_page > total_out_pages:
+            st.session_state.out_page = max(1, total_out_pages)
 
-        for row_idx, row in display_out_list:
+        st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 퇴영 기록: <b>{total_out_items}명</b> (페이지 {st.session_state.out_page}/{total_out_pages})</p>", unsafe_allow_html=True)
+
+        out_start_idx = (st.session_state.out_page - 1) * out_items_per_page
+        out_end_idx = out_start_idx + out_items_per_page
+        current_page_out_items = display_out_list[out_start_idx:out_end_idx]
+
+        for row_idx, row in current_page_out_items:
             st.markdown(f"""
                 <div class="css-card">
-                    <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#aaa;">({row.get('출입구분', '-')})</span><br>
+                    <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c;">[{row.get('출입구분', '-')}]</span><br>
                     🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')}<br>
+                    📝 비고: <b style="color: #ffb703;">{row.get('비고', '-')}</b><br>
                     <span style='color:#aaa; font-size:13px;'>📥 입영 시간: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영 시간: <b style='color:#40916c;'>{row.get('퇴영시간', '-')}</b></span>
                 </div>
             """, unsafe_allow_html=True)
+
+        # 퇴영 목록 페이지 이동 버튼 컨트롤
+        if total_out_pages > 1:
+            col_op1, col_op2, col_op3 = st.columns([1, 2, 1])
+            with col_op1:
+                if st.button("◀ 이전", use_container_width=True, key="prev_out"):
+                    if st.session_state.out_page > 1:
+                        st.session_state.out_page -= 1
+                        st.rerun()
+            with col_op2:
+                st.markdown(f"<p style='text-align: center; margin-top: 10px;'>{st.session_state.out_page} / {total_out_pages}</p>", unsafe_allow_html=True)
+            with col_op3:
+                if st.button("다음 ▶", use_container_width=True, key="next_out"):
+                    if st.session_state.out_page < total_out_pages:
+                        st.session_state.out_page += 1
+                        st.rerun()
 
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
@@ -398,6 +488,8 @@ with tab3:
             f_type = st.text_input("출입 구분", placeholder="예: 영농인, 군인 등")
             f_zone = st.text_input("통제구역", placeholder="예: A구역")
             
+        f_note = st.text_input("기본 비고", placeholder="특이사항 입력")
+            
         f_submitted = st.form_submit_button("➕ 고정 명단에 추가", use_container_width=True)
         if f_submitted:
             if f_name.strip():
@@ -408,7 +500,8 @@ with tab3:
                     "출입구분": f_type.strip() if f_type.strip() else "영농인",
                     "차량번호": f_car.strip() if f_car.strip() else "-",
                     "목적지": f_dest.strip() if f_dest.strip() else "-",
-                    "통제구역": f_zone.strip() if f_zone.strip() else "-"
+                    "통제구역": f_zone.strip() if f_zone.strip() else "-",
+                    "비고": f_note.strip() if f_note.strip() else "-"
                 })
                 st.success(f"✅ [{f_name.strip()}] 님이 고정명단에 추가되었습니다!")
                 st.rerun()
@@ -446,7 +539,7 @@ with tab3:
             col_list1, col_list2 = st.columns([4, 1])
             with col_list1:
                 st.markdown(f"**👤 {member['성명']}** <span style='color:#40916c;'>[{member.get('출입구분', '-')}]</span> &nbsp;|&nbsp; 🎂 {member.get('생년월일', '-')} &nbsp;|&nbsp; 📞 {member.get('전화번호', '-')}", unsafe_allow_html=True)
-                st.markdown(f"<span style='color:#aaa; font-size:13px;'>🚗 차량: {member.get('차량번호', '-')} | 📍 목적: {member.get('목적지', '-')} | 🛡️ 구역: {member.get('통제구역', '-')}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='color:#aaa; font-size:13px;'>🚗 차량: {member.get('차량번호', '-')} | 📍 목적: {member.get('목적지', '-')} | 🛡️ 구역: {member.get('통제구역', '-')} | 📝 비고: {member.get('비고', '-')}</span>", unsafe_allow_html=True)
             with col_list2:
                 real_idx = st.session_state.fixed_members.index(member)
                 if st.button("삭제", key=f"del_fixed_{real_idx}", use_container_width=True):
