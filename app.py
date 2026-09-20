@@ -12,7 +12,7 @@ TEMP_MEMBERS_FILE = "temp_members.json"
 VISITORS_LOG_FILE = "visitors_log.json"
 
 # 페이지 기본 설정 (와이드 모드 적용)
-st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
+st.set_page_config(page_title="제25보병사단 비룡부대 출입 관리", layout="wide")
 
 ENTRY_TYPE_OPTIONS = [
     "영농인(고정)", "영농인(임시)", "공사(고정)", "공사(임시)", 
@@ -132,7 +132,7 @@ if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("## 🔒 비룡부대 초소 통제시스템")
+        st.markdown("## 🔒 비룡부대 통제시스템")
         st.markdown("접속 비밀번호를 입력해주세요.")
         with st.form("login_form"):
             input_pw = st.text_input("비밀번호", type="password")
@@ -144,23 +144,23 @@ if not st.session_state.logged_in:
                     st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# ==================== [메인 화면 상단 (배너 및 우측 긴급문자/지도연동 배치)] ====================
+# ==================== [메인 화면 상단 (비룡부대 배너 및 우측 빨간/파란 버튼 배치)] ====================
 col_title, col_btns = st.columns([4, 2])
 
 with col_title:
     st.markdown("""
         <div>
             <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
-            <h2 style='margin: 5px 0 0 0;'>비룡부대 초소 실시간 출입 관리 시스템</h2>
+            <h2 style='margin: 5px 0 0 0;'>비룡부대 실시간 출입 관리 시스템</h2>
         </div>
     """, unsafe_allow_html=True)
 
 with col_btns:
-    # 위쪽: 긴급문자 (빨간색 강조 버튼 느낌)
+    # 위쪽: 긴급문자 (빨간색 테두리/박스 느낌 강조)
     if st.button("🚨 긴급문자", use_container_width=True, type="primary"):
         st.session_state.emergency_step = 1
         st.rerun()
-    # 아래쪽: 지도연동 (파란색 테두리/느낌의 버튼)
+    # 아래쪽: 지도연동 (파란색 테두리/박스 느낌)
     if st.button("🗺️ 지도연동", use_container_width=True):
         st.session_state.show_map_panel = not st.session_state.show_map_panel
         st.rerun()
@@ -483,7 +483,7 @@ with tab1:
                     if st.button("다음 ▶", use_container_width=True, key="next_staying") and st.session_state.staying_page < total_pages:
                         st.session_state.staying_page += 1; st.rerun()
 
-    # 종합 현황판 하단
+    # [복원됨] 탭 1 종합 현황판 하단
     today_str = get_kts_date()
     today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
     all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
@@ -518,16 +518,50 @@ with tab1:
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# ==================== [탭 2: 퇴영 목록] ====================
+# ==================== [탭 2: 퇴영 목록 및 세부 현황 추가] ====================
 with tab2:
-    with st.expander("📖 [사용법 안내] 퇴영 목록 및 이전 기록", expanded=False):
+    with st.expander("📖 [사용법 안내] 퇴영 목록 및 세부 현황", expanded=False):
         st.markdown("""
-            - 오늘 퇴영 완료된 인원 목록을 검색할 수 있습니다.<br>
-            - 하단에서 전체 누적 출입 기록을 날짜별 및 성명별로 조회할 수 있습니다.
+            - **퇴영 세부 현황**: 오늘 날짜 기준으로 입영, 체류, 퇴영 인원 통계 현황을 한눈에 파악할 수 있습니다.<br>
+            - 오늘 퇴영 완료된 인원 목록 및 전체 누적 출입 기록을 검색할 수 있습니다.
         """, unsafe_allow_html=True)
 
-    st.subheader("🏁 오늘 퇴영 완료된 인원 목록")
+    # [추가됨] 퇴영 목록 탭 상단 세부 현황판
     today_str = get_kts_date()
+    today_entered_t2 = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
+    all_staying_t2 = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
+    today_out_t2 = [r for r in today_entered_t2 if r.get("상태") == "퇴영완료"]
+
+    st.markdown("""
+        <div class="dashboard-box" style="margin-top: 5px; margin-bottom: 25px;">
+            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📊 퇴영 및 출입 세부 현황 (오늘 기준)</h3>
+    """, unsafe_allow_html=True)
+
+    ts1, ts2, ts3 = st.columns(3)
+    with ts1:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">오늘 총 입영</h4>
+                <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(today_entered_t2)} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with ts2:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">현재 체류 중</h4>
+                <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(all_staying_t2)} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with ts3:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">오늘 퇴영 완료</h4>
+                <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(today_out_t2)} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.subheader("🏁 오늘 퇴영 완료된 인원 목록")
     today_out_query = st.text_input("🔍 오늘 퇴영 인원 검색", placeholder="성명, 연락처, 차량번호 입력", key="search_tab2_today_out")
 
     today_out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료" and row.get("날짜", today_str) == today_str]
