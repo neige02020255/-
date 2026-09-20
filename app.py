@@ -215,8 +215,85 @@ with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클�
 # ----------------- [탭 메뉴 구성] -----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 지도 연동"])
 
-# ==================== [탭 1: 출입 관리 및 현황] ====================
+# ==================== [탭 1: 출입 관리 및 현황 (종합현황판 포함)] ====================
 with tab1:
+    # 1. 상단 종합 현황판 배치
+    today_str = get_kts_date()
+    today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
+    total_entered_count = len(today_entered)
+
+    all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
+    total_count = len(all_staying)
+    
+    today_out = [r for r in today_entered if r.get("상태") == "퇴영완료"]
+    total_out_count = len(today_out)
+
+    st.markdown("""
+        <div class="dashboard-box" style="margin-bottom: 25px;">
+            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 현황판 (오늘 기준)</h3>
+    """, unsafe_allow_html=True)
+
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
+    with col_stat1:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">오늘 총 입영 인원</h4>
+                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_entered_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_stat2:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
+                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_stat3:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
+                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
+
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
+        st.markdown("##### 🚀 입영 현황 세부 정보")
+        if total_entered_count == 0:
+            st.info("오늘 입영한 인원이 없습니다.")
+        else:
+            enter_type_counts = {}
+            for row in today_entered:
+                enter_type_counts[row.get("출입구분", "기타")] = enter_type_counts.get(row.get("출입구분", "기타"), 0) + 1
+            st.markdown(f"🏷️ **구분별 입영**:<br>" + '<br>'.join([f'- **{k}**: {v}명' for k, v in enter_type_counts.items()]), unsafe_allow_html=True)
+
+    with col_d2:
+        st.markdown("##### 🟢 체류 현황 세부 정보")
+        if total_count == 0:
+            st.info("현재 체류 중인 인원이 없습니다.")
+        else:
+            type_counts, zone_counts = {}, {}
+            for row in all_staying:
+                type_counts[row.get("출입구분", "기타")] = type_counts.get(row.get("출입구분", "기타"), 0) + 1
+                zone_counts[row.get("구역", "미지정")] = zone_counts.get(row.get("구역", "미지정"), 0) + 1
+            st.markdown(f"🏷️ **구분별**: " + ' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()]))
+            st.markdown(f"🛡️ **구역별**: " + ' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()]))
+
+    with col_d3:
+        st.markdown("##### 🏁 퇴영 현황 세부 정보")
+        if total_out_count == 0:
+            st.info("오늘 퇴영 완료된 인원이 없습니다.")
+        else:
+            out_type_counts = {}
+            for row in today_out:
+                out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
+            st.markdown(f"🏷️ **구분별 퇴영**:<br>" + '<br>'.join([f'- **{k}**: {v}명' for k, v in out_type_counts.items()]), unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # 2. 입영 등록 및 실시간 체류 관리 좌우 배치
     left_col, right_col = st.columns([1, 1], gap="large")
 
     with left_col:
@@ -331,7 +408,6 @@ with tab1:
     with right_col:
         st.subheader("📊 실시간 체류 인원 및 관리")
 
-        today_str = get_kts_date()
         all_logs = [(i, row) for i, row in enumerate(st.session_state.visitors_log)]
         all_logs.reverse()
 
@@ -404,84 +480,6 @@ with tab1:
                     if st.button("다음 ▶", use_container_width=True, key="next_staying") and st.session_state.staying_page < total_pages:
                         st.session_state.staying_page += 1
                         st.rerun()
-
-    # ==================== [하단 종합 현황판] ====================
-    st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
-    
-    st.markdown("""
-        <div class="dashboard-box">
-            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 현황판 (오늘 기준)</h3>
-    """, unsafe_allow_html=True)
-    
-    today_str = get_kts_date()
-    today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
-    total_entered_count = len(today_entered)
-
-    all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
-    total_count = len(all_staying)
-    
-    today_out = [r for r in today_entered if r.get("상태") == "퇴영완료"]
-    total_out_count = len(today_out)
-
-    col_stat1, col_stat2, col_stat3 = st.columns(3)
-    with col_stat1:
-        st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
-                <h4 style="margin:0; color:#90e0ef;">오늘 총 입영 인원</h4>
-                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_entered_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_stat2:
-        st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
-                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
-                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_stat3:
-        st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
-                <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
-                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
-
-    col_d1, col_d2, col_d3 = st.columns(3)
-    with col_d1:
-        st.markdown("##### 🚀 입영 현황 세부 정보")
-        if total_entered_count == 0:
-            st.info("오늘 입영한 인원이 없습니다.")
-        else:
-            enter_type_counts = {}
-            for row in today_entered:
-                enter_type_counts[row.get("출입구분", "기타")] = enter_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"🏷️ **구분별 입영**:<br>" + '<br>'.join([f'- **{k}**: {v}명' for k, v in enter_type_counts.items()]), unsafe_allow_html=True)
-
-    with col_d2:
-        st.markdown("##### 🟢 체류 현황 세부 정보")
-        if total_count == 0:
-            st.info("현재 체류 중인 인원이 없습니다.")
-        else:
-            type_counts, zone_counts = {}, {}
-            for row in all_staying:
-                type_counts[row.get("출입구분", "기타")] = type_counts.get(row.get("출입구분", "기타"), 0) + 1
-                zone_counts[row.get("구역", "미지정")] = zone_counts.get(row.get("구역", "미지정"), 0) + 1
-            st.markdown(f"🏷️ **구분별**: " + ' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()]))
-            st.markdown(f"🛡️ **구역별**: " + ' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()]))
-
-    with col_d3:
-        st.markdown("##### 🏁 퇴영 현황 세부 정보")
-        if total_out_count == 0:
-            st.info("오늘 퇴영 완료된 인원이 없습니다.")
-        else:
-            out_type_counts = {}
-            for row in today_out:
-                out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"🏷️ **구분별 퇴영**:<br>" + '<br>'.join([f'- **{k}**: {v}명' for k, v in out_type_counts.items()]), unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # ==================== [탭 2: 퇴영 목록 및 이전 기록 관리] ====================
 with tab2:
@@ -733,9 +731,9 @@ with tab4:
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
-# ==================== [탭 5: 지도 연동 (체류 인원 목록 상단 배치 및 주소/MGRS 검색 지원)] ====================
+# ==================== [탭 5: 지도 연동] ====================
 with tab5:
-    # 1. 체류 인원 명단 목적지 확인 (상단으로 이동)
+    # 1. 체류 인원 명단 목적지 확인 (상단 배치)
     st.subheader("👥 현재 체류 인원 명단 (클릭하여 목적지 지도 위치 및 MGRS 좌표 확인)")
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
@@ -782,11 +780,10 @@ with tab5:
 
     st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
 
-    # 2. MGRS 좌표 및 주소 기반 지도 검색 섹션 (하단으로 이동)
+    # 2. MGRS 좌표 및 주소 기반 지도 검색 섹션 (하단 배치)
     st.subheader("🗺️ MGRS 좌표 및 주소 기반 지도 검색")
     st.markdown("MGRS 좌표 또는 일반 주소를 입력하거나 **'📍 내 위치 MGRS로 변환 이동'** 버튼을 눌러 지도에 즉시 표기할 수 있습니다.")
 
-    # GPS 위경도를 MGRS로 근사 변환하는 자바스크립트 내장 버튼 컴포넌트 추가
     loc_btn_html = """
     <div style="margin-bottom: 12px;">
         <button onclick="getMyLocationMGRS()" style="background-color: #2d6a4f; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: 100%;">
@@ -836,7 +833,6 @@ with tab5:
     """
     st.components.v1.html(loc_btn_html, height=90)
 
-    # 검색 방식 선택 (MGRS 좌표 vs 주소 입력)
     search_mode = st.radio("검색 방식 선택", ["MGRS 좌표", "주소 입력"], horizontal=True)
 
     mgrs_input_col1, mgrs_input_col2 = st.columns([3, 1])
