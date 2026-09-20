@@ -1,11 +1,12 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import streamlit as st
 
 # ==================== [설정] ====================
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
 
-# 페이지 기본 설정
-st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="centered")
+# 페이지 기본 설정 (와이드 모드 적용으로 좌우 공간 활용 극대화)
+st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
 
 # ==================== [다크모드 CSS 디자인 스타일] ====================
 st.markdown("""
@@ -22,6 +23,14 @@ st.markdown("""
         margin-bottom: 12px;
         border-left: 5px solid #40916c;
         color: #ffffff;
+    }
+    .stat-card {
+        background-color: #1b263b;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        border: 1px solid #415a77;
+        margin-bottom: 10px;
     }
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #ffffff !important;
@@ -44,6 +53,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ==================== [한국 시간 헬퍼 함수] ====================
+def get_kts_time(fmt="%H:%M"):
+    return datetime.now(ZoneInfo("Asia/Seoul")).strftime(fmt)
+
 # ==================== [세션 상태 초기화] ====================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -56,22 +69,21 @@ if "fixed_members" not in st.session_state:
     initial_members = [
         {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역"},
         {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사인원", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역"},
-        {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역"},
-        {"성명": "김영농", "생년월일": "800101", "전화번호": "010-5555-6666", "출입구분": "영농인", "차량번호": "33다5555", "목적지": "남방한계선 영농지", "통제구역": "A구역"}
+        {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역"}
     ]
     
     last_names = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권", "황", "안", "송", "전", "홍"]
-    first_names = ["민준", "서준", "도윤", "예준", "시우", "하준", "주원", "지호", "준우", "도현", "서연", "서윤", "지우", "서현", "민서", "하윤", "지민", "채원", "지유", "지안", "영수", "영철", "정호", "상훈", "성진"]
+    first_names = ["민준", "서준", "도윤", "예준", "시우", "하준", "주원", "지호", "준우", "도현", "서연", "서윤", "지우", "서현", "민서", "하윤", "지민", "채원", "지유", "지안"]
     types_pool = ["영농인", "공사인원", "안보관광", "군인", "고정", "성묘객"]
     zones_pool = ["A구역", "B구역", "C구역", "DMZ통로", "영농단지"]
     
     import random
     random.seed(42)
     
-    for i in range(1, 180):
+    for i in range(1, 50):
         l_name = random.choice(last_names)
         f_name = random.choice(first_names)
-        full_name = f"{l_name}{f_name}{i}" if i > 25 else f"{l_name}{f_name}"
+        full_name = f"{l_name}{f_name}"
         
         birth_year = random.choice(range(50, 95))
         birth_date = f"{birth_year}{random.choice(range(1, 13)):02d}{random.choice(range(1, 29)):02d}"
@@ -110,8 +122,7 @@ if not st.session_state.logged_in:
                     st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# ==================== [메인 출입 관리 화면] ====================
-
+# ==================== [메인 화면 상단] ====================
 st.markdown("""
     <div>
         <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
@@ -119,7 +130,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-col_space, col_logout = st.columns([4, 1])
+col_space, col_logout = st.columns([6, 1])
 with col_logout:
     if st.button("🚪 로그아웃", use_container_width=True):
         st.session_state.logged_in = False
@@ -127,179 +138,215 @@ with col_logout:
 
 st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-# ----------------- [탭 메뉴 구성 (총 3개 탭으로 깔끔하게 분리)] -----------------
+# ----------------- [탭 메뉴 구성] -----------------
 tab1, tab2, tab3 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리"])
 
-# ==================== [탭 1: 출입 관리 및 현황 (체류 인원 중심)] ====================
+# ==================== [탭 1: 출입 관리 및 현황 (2단 레이아웃 적용)] ====================
 with tab1:
-    st.subheader("📝 출입자 등록 (입영)")
+    # 전체 화면을 좌우 2분할 (왼쪽: 입력/체류목록, 오른쪽: 체류인원 종합 통계)
+    left_col, right_col = st.columns([1.2, 1], gap="large")
 
-    if "temp_input_name" not in st.session_state:
-        st.session_state.temp_input_name = ""
-    if "selected_matched_member" not in st.session_state:
-        st.session_state.selected_matched_member = None
-    if "ambiguous_matches" not in st.session_state:
-        st.session_state.ambiguous_matches = []
+    with left_col:
+        st.subheader("📝 출입자 등록 (입영)")
 
-    with st.form("name_check_form"):
-        col_nc1, col_nc2 = st.columns([3, 1])
-        with col_nc1:
-            typed_name = st.text_input("성명 입력", placeholder="이름을 입력 후 버튼을 누르세요", value=st.session_state.temp_input_name)
-        with col_nc2:
-            st.markdown("<br>", unsafe_allow_html=True)
-            name_check_btn = st.form_submit_button("🔍 정보 불러오기", use_container_width=True)
-
-        if name_check_btn:
-            st.session_state.temp_input_name = typed_name.strip()
-            clean_name = typed_name.strip()
-            
-            if clean_name:
-                matches = [m for m in st.session_state.fixed_members if m["성명"] == clean_name]
-                
-                if len(matches) == 1:
-                    st.session_state.selected_matched_member = matches[0]
-                    st.session_state.ambiguous_matches = []
-                    st.success(f"✅ [{clean_name}] 님의 고정 정보를 불러왔습니다.")
-                elif len(matches) > 1:
-                    st.session_state.selected_matched_member = None
-                    st.session_state.ambiguous_matches = matches
-                    st.warning(f"⚠️ 동명이인이 {len(matches)}명 있습니다. 아래에서 선택해주세요.")
-                else:
-                    st.session_state.selected_matched_member = None
-                    st.session_state.ambiguous_matches = []
-                    st.info(f"ℹ️ 등록되지 않은 신규 인원입니다. 정보를 직접 입력해주세요.")
-            else:
-                st.warning("⚠️ 성명을 입력해주세요.")
-
-    if st.session_state.ambiguous_matches:
-        st.markdown("#### 👥 동명이인 선택 창")
-        choice_options = [f"성명: {m['성명']} | 생년: {m['생년월일']} | 전화: {m['전화번호']} | 차량: {m['차량번호']}" for m in st.session_state.ambiguous_matches]
-        selected_choice = st.selectbox("어떤 분이십니까? 아래에서 선택해주세요", choice_options)
-        
-        if st.button("이 인원으로 확정 선택", use_container_width=True):
-            chosen_idx = choice_options.index(selected_choice)
-            st.session_state.selected_matched_member = st.session_state.ambiguous_matches[chosen_idx]
+        if "temp_input_name" not in st.session_state:
+            st.session_state.temp_input_name = ""
+        if "selected_matched_member" not in st.session_state:
+            st.session_state.selected_matched_member = None
+        if "ambiguous_matches" not in st.session_state:
             st.session_state.ambiguous_matches = []
-            st.success("✅ 선택되었습니다. 아래 입영 신청 버튼을 눌러주세요!")
-            st.rerun()
 
-    m_data = st.session_state.selected_matched_member or {}
-    
-    types_list = ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "민간인"]
-    default_type_idx = 0
-    if m_data.get("출입구분") in types_list:
-        default_type_idx = types_list.index(m_data.get("출입구분"))
+        with st.form("name_check_form"):
+            col_nc1, col_nc2 = st.columns([3, 1])
+            with col_nc1:
+                typed_name = st.text_input("성명 입력", placeholder="이름 입력 후 버튼 클릭", value=st.session_state.temp_input_name)
+            with col_nc2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                name_check_btn = st.form_submit_button("🔍 불러오기", use_container_width=True)
 
-    with st.form("entry_form", clear_on_submit=True):
-        final_name_val = st.session_state.temp_input_name if st.session_state.temp_input_name else ""
-        if m_data:
-            final_name_val = m_data.get("성명", "")
+            if name_check_btn:
+                st.session_state.temp_input_name = typed_name.strip()
+                clean_name = typed_name.strip()
+                
+                if clean_name:
+                    matches = [m for m in st.session_state.fixed_members if m["성명"] == clean_name]
+                    if len(matches) == 1:
+                        st.session_state.selected_matched_member = matches[0]
+                        st.session_state.ambiguous_matches = []
+                        st.success(f"✅ [{clean_name}] 정보 연동됨")
+                    elif len(matches) > 1:
+                        st.session_state.selected_matched_member = None
+                        st.session_state.ambiguous_matches = matches
+                        st.warning(f"⚠️ 동명이인 {len(matches)}명 발견")
+                    else:
+                        st.session_state.selected_matched_member = None
+                        st.session_state.ambiguous_matches = []
+                        st.info("ℹ️ 신규 인원입니다.")
+                else:
+                    st.warning("⚠️ 성명을 입력하세요.")
 
-        input_name = st.text_input("확인된 성명", value=final_name_val)
-        
-        col_i1, col_i2 = st.columns(2)
-        with col_i1:
-            birth_date = st.text_input("생년월일 (6자리)", value=m_data.get("생년월일", ""), placeholder="예: 751225")
-        with col_i2:
-            phone = st.text_input("전화번호", value=m_data.get("전화번호", ""), placeholder="예: 010-1234-5678")
+        if st.session_state.ambiguous_matches:
+            st.markdown("#### 👥 동명이인 선택")
+            choice_options = [f"성명: {m['성명']} | 생년: {m['생년월일']} | 전화: {m['전화번호']} | 차량: {m['차량번호']}" for m in st.session_state.ambiguous_matches]
+            selected_choice = st.selectbox("해당하는 인원을 선택하세요", choice_options)
             
-        v_type = st.selectbox("출입 구분", types_list, index=default_type_idx)
-        
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-            car = st.text_input("차종 및 차량번호", value=m_data.get("차량번호", ""), placeholder="예: 12가3456")
-            dest = st.text_input("목적지", value=m_data.get("목적지", ""), placeholder="예: 북삼리 영농지")
-        with col_f2:
-            zone = st.text_input("통제 구역", value=m_data.get("통제구역", ""), placeholder="예: A구역")
-            st.markdown("<br>", unsafe_allow_html=True)
-        
-        submitted = st.form_submit_button("🚀 최종 입영 처리", use_container_width=True)
-        if submitted:
-            final_name = input_name.strip()
-            if not final_name:
-                st.warning("⚠️ 성명을 입력해주세요.")
-            else:
-                time_now = datetime.now().strftime("%H:%M")
-                new_entry = {
-                    "출입시간": time_now,
-                    "퇴영시간": "-",
-                    "성명": final_name,
-                    "생년월일": birth_date if birth_date else "-",
-                    "전화번호": phone if phone else "-",
-                    "출입구분": v_type,
-                    "차량": car if car else "-",
-                    "목적": dest if dest else "-",
-                    "구역": zone if zone else "-",
-                    "상태": "체류중"
-                }
-                st.session_state.visitors_log.append(new_entry)
-                st.session_state.temp_input_name = ""
-                st.session_state.selected_matched_member = None
-                st.success(f"🎉 [{final_name}] 님 입영 처리 완료!")
+            if st.button("선택 확정", use_container_width=True):
+                chosen_idx = choice_options.index(selected_choice)
+                st.session_state.selected_matched_member = st.session_state.ambiguous_matches[chosen_idx]
+                st.session_state.ambiguous_matches = []
                 st.rerun()
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("---")
-    st.subheader("📊 [출입 현황] 현재 통제구역 내 체류 인원")
+        m_data = st.session_state.selected_matched_member or {}
 
-    staying_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
+        with st.form("entry_form", clear_on_submit=True):
+            final_name_val = st.session_state.temp_input_name if st.session_state.temp_input_name else m_data.get("성명", "")
+            input_name = st.text_input("확인된 성명", value=final_name_val)
+            
+            col_i1, col_i2 = st.columns(2)
+            with col_i1:
+                birth_date = st.text_input("생년월일 (6자리)", value=m_data.get("생년월일", ""), placeholder="예: 751225")
+            with col_i2:
+                phone = st.text_input("전화번호", value=m_data.get("전화번호", ""), placeholder="예: 010-1234-5678")
+                
+            # 출입구분: 직접 타이핑할 수 있도록 text_input 사용 (기존 연동된 값이 있으면 기본값으로 제공)
+            v_type = st.text_input("출입 구분 (직접 입력 가능)", value=m_data.get("출입구분", "영농인"), placeholder="예: 영농인, 공사인원, 군인 등")
+            
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                car = st.text_input("차종 및 차량번호", value=m_data.get("차량번호", ""), placeholder="예: 12가3456")
+                dest = st.text_input("목적지", value=m_data.get("목적지", ""), placeholder="예: 북삼리 영농지")
+            with col_f2:
+                zone = st.text_input("통제 구역", value=m_data.get("통제구역", ""), placeholder="예: A구역")
+                st.markdown("<br>", unsafe_allow_html=True)
+            
+            submitted = st.form_submit_button("🚀 최종 입영 처리", use_container_width=True)
+            if submitted:
+                final_name = input_name.strip()
+                if not final_name:
+                    st.warning("⚠️ 성명을 입력해주세요.")
+                else:
+                    time_now = get_kts_time("%H:%M")
+                    new_entry = {
+                        "출입시간": time_now,
+                        "퇴영시간": "-",
+                        "성명": final_name,
+                        "생년월일": birth_date if birth_date else "-",
+                        "전화번호": phone if phone else "-",
+                        "출입구분": v_type.strip() if v_type.strip() else "기타",
+                        "차량": car if car else "-",
+                        "목적": dest if dest else "-",
+                        "구역": zone if zone else "-",
+                        "상태": "체류중"
+                    }
+                    st.session_state.visitors_log.append(new_entry)
+                    st.session_state.temp_input_name = ""
+                    st.session_state.selected_matched_member = None
+                    st.success(f"🎉 [{final_name}] 님 입영 처리 완료!")
+                    st.rerun()
 
-    if not staying_list:
-        st.info("💡 현재 초소 통제구역 내 체류 중인 인원이 없습니다.")
-    else:
-        with st.form("staying_search_form"):
-            col_s1, col_s2 = st.columns([3, 1])
-            with col_s1:
-                staying_query_input = st.text_input("🔍 출입자 검색어", placeholder="이름, 번호, 차량번호 입력", label_visibility="collapsed")
-            with col_s2:
-                staying_search_btn = st.form_submit_button("검색", use_container_width=True)
-        
-        if "applied_staying_query" not in st.session_state:
-            st.session_state.applied_staying_query = ""
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("📊 현재 체류 인원 목록 (최신순)")
 
-        if staying_search_btn:
-            st.session_state.applied_staying_query = staying_query_input
+        # 체류 중인 항목 추출 (최신 등록된 항목이 위로 오도록 역순 정렬)
+        staying_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
+        staying_list.reverse()  # 최신순 정렬
 
-        search_query = st.session_state.applied_staying_query
-
-        if search_query:
-            filtered_list = []
-            for idx, row in staying_list:
-                if (search_query in str(row.get("성명", "")) or 
-                    search_query in str(row.get("전화번호", "")) or 
-                    search_query in str(row.get("차량", ""))):
-                    filtered_list.append((idx, row))
-            display_list = filtered_list
+        if not staying_list:
+            st.info("💡 현재 초소 통제구역 내 체류 중인 인원이 없습니다.")
         else:
-            display_list = staying_list
+            with st.form("staying_search_form"):
+                col_s1, col_s2 = st.columns([3, 1])
+                with col_s1:
+                    staying_query_input = st.text_input("🔍 검색어", placeholder="이름, 번호, 차량번호 입력", label_visibility="collapsed")
+                with col_s2:
+                    staying_search_btn = st.form_submit_button("검색", use_container_width=True)
+            
+            if "applied_staying_query" not in st.session_state:
+                st.session_state.applied_staying_query = ""
 
-        st.markdown(f"<p style='color: #aaa; font-size: 14px;'>체류 인원: <b>{len(staying_list)}명</b> (검색 결과: {len(display_list)}명)</p>", unsafe_allow_html=True)
+            if staying_search_btn:
+                st.session_state.applied_staying_query = staying_query_input
 
-        if not display_list:
-            st.warning("🔍 검색 결과가 없습니다.")
-        else:
+            search_query = st.session_state.applied_staying_query
+
+            if search_query:
+                display_list = [(idx, row) for idx, row in staying_list if search_query in str(row.get("성명", "")) or search_query in str(row.get("전화번호", "")) or search_query in str(row.get("차량", ""))]
+            else:
+                display_list = staying_list
+
+            st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 체류: <b>{len(staying_list)}명</b></p>", unsafe_allow_html=True)
+
             for row_idx, row in display_list:
                 with st.container():
                     st.markdown(f"""
                         <div class="css-card">
-                            <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#aaa;">({row.get('출입구분', '-')})</span><br>
+                            <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c; font-weight:bold;">[{row.get('출입구분', '-')}]</span><br>
                             🎂 생년월일: {row.get('생년월일', '-')} &nbsp;|&nbsp; 📞 전화: {row.get('전화번호', '-')}<br>
                             🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
-                            <span style="color: #40916c; font-size: 13px; font-weight: bold;">입영 시각: {row.get('출입시간', '-')}</span>
+                            <span style="color: #adb5bd; font-size: 13px;">입영 시각: {row.get('출입시간', '-')}</span>
                         </div>
                     """, unsafe_allow_html=True)
                     
                     if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
                         st.session_state.visitors_log[row_idx]["상태"] = "퇴영완료"
-                        st.session_state.visitors_log[row_idx]["퇴영시간"] = datetime.now().strftime("%H:%M")
+                        st.session_state.visitors_log[row_idx]["퇴영시간"] = get_kts_time("%H:%M")
                         st.rerun()
 
-# ==================== [탭 2: 퇴영 목록 (별도의 새 창 탭으로 분리 및 검색 기능)] ====================
+    # 오른쪽 빈 공간: 체류인원 종합 현황판 배치
+    with right_col:
+        st.subheader("📈 [우측 종합] 체류 인원 현황판")
+        st.markdown("현재 통제구역 내에 있는 인원의 종합 통계입니다.")
+        
+        all_staying = [row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
+        total_count = len(all_staying)
+
+        # 상단 핵심 지표 카드
+        st.markdown(f"""
+            <div class="stat-card">
+                <h3 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h3>
+                <p style="font-size: 36px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown("#### 🏷️ 출입 구분별 체류 현황")
+        
+        if total_count == 0:
+            st.info("현재 체류 중인 인원이 없어 통계가 표시되지 않습니다.")
+        else:
+            # 출입 구분별 카운트 계산
+            type_counts = {}
+            zone_counts = {}
+            for row in all_staying:
+                v_t = row.get("출입구분", "기타")
+                zone = row.get("구역", "미지정")
+                type_counts[v_t] = type_counts.get(v_t, 0) + 1
+                zone_counts[zone] = zone_counts.get(zone, 0) + 1
+
+            st.markdown("##### 📌 구분별 인원")
+            for t_name, count in type_counts.items():
+                st.markdown(f"- **{t_name}**: `{count}명`")
+
+            st.markdown("##### 🛡️ 통제구역별 인원")
+            for z_name, count in zone_counts.items():
+                st.markdown(f"- **{z_name}**: `{count}명`")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("---")
+        st.markdown("#### ⚡ 실시간 바로가기 팁")
+        st.markdown("""
+        - 왼쪽 화면에서 이름을 입력하고 정보를 불러오거나 신규 등록할 수 있습니다.
+        - 체류 목록은 **가장 최근에 입영한 사람**이 맨 위에 표시됩니다.
+        - 퇴영이 완료된 인원은 상단탭의 **[퇴영 목록]**에서 확인하실 수 있습니다.
+        """)
+
+# ==================== [탭 2: 퇴영 목록] ====================
 with tab2:
     st.subheader("🏁 [퇴영 목록] 초소 통과 완료된 기록")
-    st.markdown("오늘 초소를 통과하여 퇴영 완료된 인원의 기록을 조회하고 검색합니다.")
+    st.markdown("오늘 초소를 통과하여 퇴영 완료된 인원의 기록을 조회합니다.")
 
     out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
+    out_list.reverse() # 퇴영 목록도 최근 순으로
 
     if not out_list:
         st.info("💡 오늘 퇴영 완료된 기록이 없습니다.")
@@ -318,30 +365,20 @@ with tab2:
             st.session_state.applied_out_query = out_query_input
 
         out_search = st.session_state.applied_out_query
-
+        display_out_list = out_list
         if out_search:
-            filtered_out = []
-            for idx, row in out_list:
-                if out_search in str(row.get("성명", "")) or out_search in str(row.get("차량", "")):
-                    filtered_out.append((idx, row))
-            display_out_list = filtered_out
-        else:
-            display_out_list = out_list
+            display_out_list = [(idx, row) for idx, row in out_list if out_search in str(row.get("성명", "")) or out_search in str(row.get("차량", ""))]
 
-        st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 퇴영 기록: <b>{len(out_list)}명</b> (검색 결과: {len(display_out_list)}명)</p>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 퇴영 기록: <b>{len(out_list)}명</b></p>", unsafe_allow_html=True)
 
-        if not display_out_list:
-            st.warning("🔍 검색 결과가 없습니다.")
-        else:
-            for row_idx, row in display_out_list:
-                st.markdown(f"""
-                    <div class="css-card">
-                        <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#aaa;">({row.get('출입구분', '-')})</span><br>
-                        🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')}<br>
-                        <span style='color:#aaa; font-size:13px;'>📥 출입 시간: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영 시간: <b style='color:#40916c;'>{row.get('퇴영시간', '-')}</b></span>
-                    </div>
-                """, unsafe_allow_html=True)
+        for row_idx, row in display_out_list:
+            st.markdown(f"""
+                <div class="css-card">
+                    <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#aaa;">({row.get('출입구분', '-')})</span><br>
+                    🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')}<br>
+                    <span style='color:#aaa; font-size:13px;'>📥 입영 시간: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영 시간: <b style='color:#40916c;'>{row.get('퇴영시간', '-')}</b></span>
+                </div>
+            """, unsafe_allow_html=True)
 
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
@@ -358,7 +395,7 @@ with tab3:
             f_dest = st.text_input("목적지", placeholder="예: 북삼리 영농지")
         with col_mf2:
             f_phone = st.text_input("전화번호", placeholder="예: 010-1234-5678")
-            f_type = st.selectbox("출입 구분", ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객"], key="new_fixed_type")
+            f_type = st.text_input("출입 구분", placeholder="예: 영농인, 군인 등")
             f_zone = st.text_input("통제구역", placeholder="예: A구역")
             
         f_submitted = st.form_submit_button("➕ 고정 명단에 추가", use_container_width=True)
@@ -368,7 +405,7 @@ with tab3:
                     "성명": f_name.strip(),
                     "생년월일": f_birth.strip() if f_birth.strip() else "-",
                     "전화번호": f_phone.strip() if f_phone.strip() else "-",
-                    "출입구분": f_type,
+                    "출입구분": f_type.strip() if f_type.strip() else "영농인",
                     "차량번호": f_car.strip() if f_car.strip() else "-",
                     "목적지": f_dest.strip() if f_dest.strip() else "-",
                     "통제구역": f_zone.strip() if f_zone.strip() else "-"
@@ -384,7 +421,7 @@ with tab3:
     with st.form("fixed_search_form"):
         col_fs1, col_fs2 = st.columns([3, 1])
         with col_fs1:
-            fixed_query_input = st.text_input("🔍 고정명단 검색어", placeholder="이름이나 차량번호 검색", label_visibility="collapsed")
+            fixed_query_input = st.text_input("🔍 검색어", placeholder="이름이나 차량번호 검색", label_visibility="collapsed")
         with col_fs2:
             fixed_search_btn = st.form_submit_button("검색", use_container_width=True)
 
@@ -405,10 +442,10 @@ with tab3:
 
         st.markdown(f"<p style='color: #aaa; font-size: 13px;'>검색 결과: 총 {len(display_fixed)}명</p>", unsafe_allow_html=True)
 
-        for m_idx, member in enumerate(display_fixed):
+        for member in display_fixed:
             col_list1, col_list2 = st.columns([4, 1])
             with col_list1:
-                st.markdown(f"**👤 {member['성명']}** ({member.get('출입구분', '-')}) &nbsp;|&nbsp; 🎂 {member.get('생년월일', '-')} &nbsp;|&nbsp; 📞 {member.get('전화번호', '-')}")
+                st.markdown(f"**👤 {member['성명']}** <span style='color:#40916c;'>[{member.get('출입구분', '-')}]</span> &nbsp;|&nbsp; 🎂 {member.get('생년월일', '-')} &nbsp;|&nbsp; 📞 {member.get('전화번호', '-')}", unsafe_allow_html=True)
                 st.markdown(f"<span style='color:#aaa; font-size:13px;'>🚗 차량: {member.get('차량번호', '-')} | 📍 목적: {member.get('목적지', '-')} | 🛡️ 구역: {member.get('통제구역', '-')}</span>", unsafe_allow_html=True)
             with col_list2:
                 real_idx = st.session_state.fixed_members.index(member)
