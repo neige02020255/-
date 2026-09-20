@@ -33,7 +33,7 @@ DB_REGISTRY = {
 }
 
 # 페이지 기본 설정
-st.set_page_title("민통초소 출입 관리 (연습용)", layout="centered")
+st.set_page_config(page_title="민통초소 출입 관리 (연습용)", layout="centered")
 
 # 세션 상태 초기화 (로그인 여부 및 방문객 기록)
 if "logged_in" not in st.session_state:
