@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import streamlit as st
 import json
+import html
 import os
 
 # ==================== [설정 및 파일 저장 함수] ====================
@@ -85,7 +86,7 @@ def save_visitors_log(logs):
     except Exception as e:
         st.error(f"출입 기록 저장 중 오류 발생: {e}")
 
-# ==================== [CSS 및 스타일 (스와이프 탭 활성화 포함)] ====================
+# ==================== [CSS 및 스타일] ====================
 st.markdown("""
     <style>
     .stApp { background-color: #121212; color: #e0e0e0; }
@@ -117,7 +118,6 @@ st.markdown("""
     .stButton button {
         font-size: 18px !important; font-weight: bold !important; padding-top: 10px !important; padding-bottom: 10px !important;
     }
-    /* 🌟 모바일 좌우 스와이프 탭 전환 허용 스타일 */
     [data-baseweb="tab-list"] {
         overflow-x: auto !important;
         flex-wrap: nowrap !important;
@@ -192,7 +192,7 @@ with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클�
             <b>4. 📋 임시출입자 명단 관리 탭</b><br>
             - 공문 등으로 사전 승인된 방문객을 등록하며, 종료일이 지나면 자동 정리됩니다.<br><br>
             <b>5. 🗺️ 구글 지도 연동 탭</b><br>
-            - 상단 검색을 통하거나, 체류 인원 명단 카드에서 <b>[목적지 지도]</b> 또는 <b>[통제구역 지도]</b>를 클릭하여 위성 지도를 즉시 조회할 수 있습니다.
+            - 스마트폰/브라우저의 <b>내 GPS 현위치</b>를 위성 지도로 즉시 확인할 수 있으며, 체류 인원 명단에서 <b>[목적지 지도]</b>를 클릭하여 위치를 조회할 수 있습니다.
         </div>
     """, unsafe_allow_html=True)
 
@@ -713,33 +713,59 @@ with tab4:
 
 # ==================== [탭 5: 구글 지도 연동] ====================
 with tab5:
-    st.subheader("🗺️ 체류 인원 연동 위성 지도")
-    st.markdown("현재 체류 중인 인원의 **목적지**나 **통제구역**을 직접 클릭하거나 검색하여 위성 지도로 즉시 위치를 확인할 수 있습니다.")
+    st.subheader("🗺️ GPS 현위치 및 체류 인원 위성 지도")
+    st.markdown("브라우저/기기의 GPS 권한을 통해 **내 현위치**를 지도에 표시하고, 체류 인원의 목적지를 클릭하여 위성 지도로 즉시 확인할 수 있습니다.")
 
-    # 지도 검색어 입력창 (상태 유지)
-    map_search_input = st.text_input("📍 지도 검색어 입력 (지역, 목적지, 구역 등)", value=st.session_state.map_search_target, placeholder="예: 연천군 북삼리, A구역 등")
-    if map_search_input != st.session_state.map_search_target:
-        st.session_state.map_search_target = map_search_input
+    # 🌟 HTML5 Geolocation API를 활용하여 브라우저 GPS 좌표를 받아오는 자바스크립트 컴포넌트
+    gps_html = """
+    <div style="background-color: #1e1e1e; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333;">
+        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 GPS 현위치 상태:</span>
+        <span id="gps-status" style="color: #ffb703; margin-left: 10px;">위치 확인 중...</span>
+        <button onclick="getLocation()" style="float: right; background-color: #2d6a4f; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">내 위치 새로고침</button>
+    </div>
+    <div id="map-container" style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 5px; margin-bottom: 20px;">
+        <iframe id="map-frame" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q=%EC%97%B0%EC%B2%9C%EA%B5%B0+%EB%AF%BC%ED%86%B5%EC%84%A0+%EC%B4%88%EC%86%8C&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
+    </div>
 
-    # 위성 지도 렌더링
-    encoded_query = st.session_state.map_search_target.replace(" ", "+")
-    google_map_url = f"https://maps.google.com/maps?q={encoded_query}&t=k&z=15&ie=UTF8&iwloc=&output=embed"
-
-    st.markdown(f"""
-        <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 10px; margin-bottom: 20px;">
-            <iframe src="{google_map_url}" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
-        </div>
-    """, unsafe_allow_html=True)
+    <script>
+    function getLocation() {
+        const statusElem = document.getElementById("gps-status");
+        const frameElem = document.getElementById("map-frame");
+        
+        if (navigator.geolocation) {
+            statusElem.innerHTML = "GPS 신호 수신 중...";
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    statusElem.innerHTML = "확인 완료 (위도: " + lat.toFixed(4) + ", 경도: " + lon.toFixed(4) + ")";
+                    // 구글 지도 위성 뷰 위도/경도 좌표로 즉시 업데이트
+                    frameElem.src = "https://maps.google.com/maps?q=" + lat + "," + lon + "&t=k&z=17&ie=UTF8&iwloc=&output=embed";
+                },
+                function(error) {
+                    statusElem.innerHTML = "위치 권한 거부됨 또는 오류 (기본 초소 위치로 표시)";
+                },
+                { timeout: 10000, enableHighAccuracy: true }
+            );
+        } else {
+            statusElem.innerHTML = "이 브라우저는 GPS를 지원하지 않습니다.";
+        }
+    }
+    // 페이지 로드 시 자동 실행
+    getLocation();
+    </script>
+    """
+    st.components.v1.html(gps_html, height=520)
 
     st.markdown("---")
-    st.subheader("👥 현재 체류 인원 명단 (클릭하여 위성 지도 이동)")
+    st.subheader("👥 현재 체류 인원 명단 (클릭하여 위성 지도 목적지 이동)")
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
     
-    map_query_filter = st.text_input("🔍 체류 인원 명단 검색", placeholder="이름, 목적, 구역 검색", key="map_member_search_filter")
+    map_query_filter = st.text_input("🔍 체류 인원 명단 검색", placeholder="이름, 목적 검색", key="map_member_search_filter")
 
     if map_query_filter:
-        filtered_staying = [v for v in staying_visitors if map_query_filter in str(v.get("성명", "")) or map_query_filter in str(v.get("목적", "")) or map_query_filter in str(v.get("구역", ""))]
+        filtered_staying = [v for v in staying_visitors if map_query_filter in str(v.get("성명", "")) or map_query_filter in str(v.get("목적", ""))]
     else:
         filtered_staying = staying_visitors
 
@@ -750,25 +776,24 @@ with tab5:
             v_name = v_row.get("성명", "-")
             v_type = v_row.get("출입구분", "-")
             v_dest = v_row.get("목적", "-")
-            v_zone = v_row.get("구역", "-")
             v_car = v_row.get("차량", "-")
             v_phone = v_row.get("전화번호", "-")
 
             st.markdown(f"""
                 <div class="css-card" style="padding: 12px 18px; margin-bottom: 8px;">
                     <b style="font-size:16px;">👤 {v_name}</b> <span style="color:#40916c;">[{v_type}]</span> | 🚗 차량: {v_car} | 📞 연락처: {v_phone}<br>
-                    📍 목적지: <b style="color:#90e0ef;">{v_dest}</b> &nbsp;|&nbsp; 🛡️ 통제구역: <b style="color:#ffb703;">{v_zone}</b>
+                    📍 목적지: <b style="color:#90e0ef;">{v_dest}</b>
                 </div>
             """, unsafe_allow_html=True)
 
-            # 클릭 시 해당 구역/목적지로 지도가 이동하는 버튼 배치
-            m_col1, m_col2 = st.columns(2)
-            with m_col1:
-                if st.button(f"📍 [목적지 지도] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
-                    st.session_state.map_search_target = f"연천군 {v_dest}"
-                    st.rerun()
-            with m_col2:
-                if st.button(f"🛡️ [구역 지도] {v_zone}", key=f"btn_zone_{idx}", use_container_width=True):
-                    st.session_state.map_search_target = f"연천군 {v_zone}"
-                    st.rerun()
+            if st.button(f"📍 [목적지 위성 지도 보기] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
+                target_q = f"연천군 {v_dest}"
+                encoded_q = html.escape(target_q)
+                # 목적지 선택 시 지도가 해당 위치로 바뀔 수 있도록 렌더링 스크립트 연결
+                dest_html = f"""
+                <div style="border-radius: 12px; overflow: hidden; border: 2px solid #40916c;">
+                    <iframe width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_q}&t=k&z=16&ie=UTF8&iwloc=&output=embed"></iframe>
+                </div>
+                """
+                st.components.v1.html(dest_html, height=470)
             st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
