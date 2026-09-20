@@ -1,4 +1,6 @@
 from datetime import datetime
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 import streamlit as st
 
 # ==================== [설정] ====================
@@ -10,8 +12,6 @@ st.set_page_config(page_title="민통초소 실시간 출입 관리", layout="ce
 # 세션 상태 초기화
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-if "visitors" not in st.session_state:
-    st.session_state.visitors = []
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -39,6 +39,25 @@ with col_logout:
 
 st.divider()
 
+# 구글 시트 연결 함수 (뷰어/편집자 권한 공유 시트 연동)
+@st.cache_resource
+def init_sheet():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive",
+    ]
+    # Streamlit 시크릿에 저장된 키를 이용해 자동 연결
+    if "gcp_service_account" in st.secrets:
+        creds_dict = dict(st.secrets["gcp_service_account"])
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        # 공유된 시트 이름 또는 URL로 연동
+        sheet = client.open("민통출입관리").sheet1
+        return sheet
+    return None
+
+sheet = init_sheet()
+
 # 1. 출입자 등록 섹션
 st.subheader("📝 출입자 등록 (입영)")
 
@@ -56,18 +75,23 @@ with st.form("entry_form", clear_on_submit=True):
             st.warning("⚠️ 성명을 입력해주세요.")
         else:
             time_now = datetime.now().strftime("%H:%M")
-            # 새로운 방문자 추가
-            st.session_state.visitors.append({
-                "type": v_type, 
-                "name": final_name, 
-                "car": car if car else "-", 
-                "dest": dest if dest else "-", 
-                "zone": zone if zone else "-", 
-                "time": time_now, 
-                "status": "체류중"
-            })
             
-            # 대문짝만한 화면 경고창 띄우기
+            # 구글 시트에 행 추가 [시간, 소속, 성명, 연락처, 목적, 구역, 상태]
+            if sheet is not None:
+                try:
+                    sheet.append_row([
+                        time_now, 
+                        v_type, 
+                        final_name, 
+                        car if car else "-", 
+                        dest if dest else "-", 
+                        zone if zone else "-", 
+                        "체류중"
+                    ])
+                except Exception as e:
+                    st.error(f"시트 저장 중 오류 발생: {e}")
+            
+            # 대문짝만한 화면 경고 팝업 띄우기
             st.markdown(f"""
                 <div style="background-color: #ff4b4b; color: white; padding: 20px; border-radius: 10px; text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px;">
                     🚨 [긴급 알림] 새로운 출입자 등록!<br>
@@ -76,26 +100,40 @@ with st.form("entry_form", clear_on_submit=True):
                 </div>
             """, unsafe_allow_html=True)
             
-            st.success(f"🎉 [{final_name}] 님 입영 처리 완료되었습니다!")
+            st.success(f"🎉 [{final_name}] 님 입영 처리 및 구글 시트 저장 완료!")
+            st.rerun()
 
 st.divider()
 
 # 2. 현재 체류 현황 섹션
 st.subheader("📊 현재 체류 중인 출입자 현황")
 
-staying_visitors = [(i, v) for i, v in enumerate(st.session_state.visitors) if v["status"] == "체류중"]
-
-if not staying_visitors:
-    st.info("현재 체류 중인 인원이 없습니다.")
+if sheet is not None:
+    try:
+        data = sheet.get_all_records()
+    except Exception:
+        data = []
+        
+    if not data:
+        st.info("현재 체류 중인 인원이 없습니다.")
+    else:
+        # 체류중인 목록만 필터링
+        staying_list = [(i+2, row) for i, row in enumerate(data) if row.get("상태") == "체류중"]
+        
+        if not staying_list:
+            st.info("현재 체류 중인 인원이 없습니다.")
+        else:
+            for row_idx, row in staying_list:
+                col1, col2, col3 = st.columns([3, 2, 1])
+                with col1:
+                    st.markdown(f"**[{row.get('소속', '-')}] {row.get('성명', '-')}**  \n차량: {row.get('연락처', '-')} | 목적: {row.get('목적', '-')}")
+                with col2:
+                    st.markdown(f"입영시간: `{row.get('시간', '-')}`")
+                with col3:
+                    if st.button("퇴영", key=f"out_{row_idx}"):
+                        sheet.update_cell(row_idx, 7, "퇴영완료") # 7번째 열(상태)을 퇴영완료로 변경
+                        st.rerun()
+                st.markdown("---")
 else:
-    for idx, v in staying_visitors:
-        col1, col2, col3 = st.columns([3, 2, 1])
-        with col1:
-            st.markdown(f"**[{v['type']}] {v['name']}**  \n차량: {v['car']} | 목적: {v['dest']}")
-        with col2:
-            st.markdown(f"입영시간: `{v['time']}`")
-        with col3:
-            if st.button("퇴영", key=f"out_{idx}"):
-                st.session_state.visitors[idx]["status"] = "퇴영완료"
-                st.rerun()
-        st.markdown("---")
+    st.info("구글 시트 연결 정보를 확인해주세요.")
+
