@@ -149,7 +149,6 @@ if not st.session_state.logged_in:
 col_title, col_btns = st.columns([4, 2])
 
 with col_title:
-    # 비룡부대 배너 클릭 시 첫 화면(탭 1)으로 이동하도록 버튼 적용
     if st.button("🛡️ 제25보병사단 비룡부대  |  비룡부대 초소 실시간 출입 관리 시스템", use_container_width=True, key="top_title_home_btn"):
         st.session_state.active_tab_index = 0
         st.rerun()
@@ -161,7 +160,6 @@ with col_btns:
             st.session_state.emergency_step = 1
             st.rerun()
     with cb2:
-        # 지도연동 버튼 클릭 시 지도 연동 탭(탭 5, 인덱스 4)으로 이동
         if st.button("🗺️ 지도연동", use_container_width=True):
             st.session_state.active_tab_index = 4
             st.rerun()
@@ -270,16 +268,13 @@ if st.session_state.emergency_step == 4:
             
     st.markdown("<hr style='margin: 30px 0; border-color: #444;'>", unsafe_allow_html=True)
 
-# ----------------- [탭 메뉴 구성 (index 연동)] -----------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 지도 연동"])
-
-# Streamlit은 현재 활성화된 탭을 직접 제어하기 위해 radio 또는 query_params나 최신 방식의 세션 탭 할당을 지원하므로 아래처럼 구현합니다.
-# 주의: st.tabs는 자체적으로 index를 직접 받는 기능이 제한적이므로 라디오 버튼 형태로 상단 연동을 하거나 아래와 같이 처리할 수 있습니다.
-# 가장 안정적인 방법은 탭 선택 인덱스를 세션으로 관리하는 st.radio 메뉴바 형태를 쓰거나 st.tabs 안에서 제어하는 것입니다.
-# 기존 탭 구조를 유지하기 위해 아래와 같이 안전하게 탭 선택 상태에 따라 분기 처리 또는 기본 탭 순서대로 보여줍니다.
+# ----------------- [탭 메뉴 구성] -----------------
+# Streamlit 최신 안정 방식으로 탭을 구성합니다.
+tab_titles = ["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 지도 연동"]
+tabs = st.tabs(tab_titles)
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
-with tab1:
+with tabs[0]:
     with st.expander("📖 [사용법 안내] 출입 관리 및 현황", expanded=False):
         st.markdown("""
             - **입영 등록**: 방문자 성명 입력 후 '정보 불러오기' 시 동명이인이나 공문 인원이 있을 경우 선택 창이 활성화됩니다.<br>
@@ -540,7 +535,7 @@ with tab1:
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ==================== [탭 2: 퇴영 목록] ====================
-with tab2:
+with tabs[1]:
     with st.expander("📖 [사용법 안내] 퇴영 목록 및 세부 현황", expanded=False):
         st.markdown("""
             - **퇴영 세부 현황**: 오늘 날짜 기준으로 입영, 체류(구분별/구역별), 퇴영 인원 통계 현황을 각 박스 아래에서 바로 확인할 수 있습니다.<br>
@@ -653,7 +648,7 @@ with tab2:
         """, unsafe_allow_html=True)
 
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
-with tab3:
+with tabs[2]:
     with st.expander("📖 [사용법 안내] 고정출입자 명단 관리", expanded=False):
         st.markdown("""
             - 고정출입자(어로인 포함) 명단을 등록 및 관리합니다.<br>
@@ -708,7 +703,7 @@ with tab3:
         st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
 # ==================== [탭 4: 임시출입자 명단 관리] ====================
-with tab4:
+with tabs[3]:
     with st.expander("📖 [사용법 안내] 임시출입자 명단 관리", expanded=False):
         st.markdown("""
             - 공문 및 사전 승인된 임시출입자를 등록합니다.<br>
@@ -765,7 +760,7 @@ with tab4:
         st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
 # ==================== [탭 5: 지도 연동] ====================
-with tab5:
+with tabs[4]:
     with st.expander("📖 [사용법 안내] 지도 연동 및 MGRS 검색", expanded=False):
         st.markdown("""
             - 체류 인원의 목적지 지도 위치 및 MGRS 좌표를 실시간으로 확인할 수 있습니다.<br>
@@ -811,4 +806,3 @@ with tab5:
         <iframe width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_target}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
     </div>
     """, height=470)
-
