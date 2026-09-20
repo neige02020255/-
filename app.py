@@ -56,8 +56,8 @@ with st.form("entry_form", clear_on_submit=True):
             st.warning("⚠️ 성명을 입력해주세요.")
         else:
             time_now = datetime.now().strftime("%H:%M")
-            # 새로운 방문자 추가 및 팝업 알림 효과
-            st.session_state.visitors.append({
+            # 새로운 방문자 추가
+            new_visitor = {
                 "type": v_type, 
                 "name": final_name, 
                 "car": car if car else "-", 
@@ -65,10 +65,19 @@ with st.form("entry_form", clear_on_submit=True):
                 "zone": zone if zone else "-", 
                 "time": time_now, 
                 "status": "체류중"
-            })
-            # 팝업 알림 메시지 출력
-            st.toast(f"🚨 새로운 출입자 등록! [{final_name}] 님 ({v_type})", icon="📢")
-            st.success(f"🎉 [{final_name}] 님 입영 처리 완료되었습니다! (시간: {time_now})")
+            }
+            st.session_state.visitors.append(new_visitor)
+            
+            # 대문짝만한 화면 경고창(Alert) 띄우기
+            st.markdown(f"""
+                <div style="background-color: #ff4b4b; color: white; padding: 20px; border-radius: 10px; text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px;">
+                    🚨 [긴급 알림] 새로운 출입자 등록!<br>
+                    성명: {final_name} ({v_type})<br>
+                    시간: {time_now}
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.success(f"🎉 [{final_name}] 님 입영 처리 완료되었습니다!")
 
 st.divider()
 
@@ -89,6 +98,5 @@ else:
         with col3:
             if st.button("퇴영", key=f"out_{idx}"):
                 st.session_state.visitors[idx]["status"] = "퇴영완료"
-                st.toast(f"👋 [{v['name']}] 님 퇴영 처리되었습니다.", icon="✅")
                 st.rerun()
         st.markdown("---")
