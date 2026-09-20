@@ -14,11 +14,26 @@ VISITORS_LOG_FILE = "visitors_log.json"  # 출입 기록 영구 보관 파일
 # 페이지 기본 설정 (와이드 모드 적용)
 st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
 
+# 출입 구분 리스트 정의 (요청 반영)
+ENTRY_TYPE_OPTIONS = [
+    "영농인(고정)",
+    "영농인(임시)",
+    "공사(고정)",
+    "공사(임시)",
+    "성묘객(임시)",
+    "어로인",
+    "군인",
+    "민간인(고정)",
+    "민간인(임시)",
+    "고정",
+    "외국인"
+]
+
 # 고정출입자 명단 로드 함수
 def load_fixed_members():
     initial_members = [
-        {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역", "비고": "특이사항 없음"},
-        {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사인원", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역", "비고": "장비 지참"},
+        {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인(고정)", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역", "비고": "특이사항 없음"},
+        {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사(고정)", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역", "비고": "장비 지참"},
         {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역", "비고": "공무 출장"},
         {"성명": "한강어부", "생년월일": "680310", "전화번호": "010-3333-4444", "출입구분": "어로인", "차량번호": "34다5678", "목적지": "임진강 어로 구역", "통제구역": "D구역", "비고": "어업 활동 승인"}
     ]
@@ -142,7 +157,7 @@ if "fixed_members" not in st.session_state:
 if "temp_members" not in st.session_state:
     st.session_state.temp_members = load_temp_members()
 if "map_search_target" not in st.session_state:
-    st.session_state.map_search_target = "연천군 민통선 초소"
+    st.session_state.map_search_target = "52S CE 12345 67890"
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -189,11 +204,11 @@ with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클�
             <b>2. 🏁 퇴영 목록 탭</b><br>
             - 오늘 퇴영 완료된 인원 목록을 검색하고, 하단에서 전체 누적 기록을 조회할 수 있습니다.<br><br>
             <b>3. 📋 고정출입자 명단 관리 탭</b><br>
-            - 영농인, 어로인, 공사인원 등 고정 출입 대상자를 등록하고 관리합니다.<br><br>
+            - 이름에 '고정'이 포함된 구분 및 '어로인' 대상자들을 관리합니다.<br><br>
             <b>4. 📋 임시출입자 명단 관리 탭</b><br>
             - 공문 등으로 사전 승인된 방문객을 등록하며, 종료일이 지나면 자동 정리됩니다.<br><br>
             <b>5. 🗺️ 구글 지도 연동 탭</b><br>
-            - 스마트폰/브라우저의 <b>내 GPS 현위치</b>를 위성 지도로 즉시 확인할 수 있으며, 체류 인원 명단에서 <b>[목적지 지도]</b>를 클릭하여 위치를 조회할 수 있습니다.
+            - MGRS(군사 격자 기준 시스템) 좌표계 기반으로 위치를 조회 및 연동합니다.
         </div>
     """, unsafe_allow_html=True)
 
@@ -273,9 +288,8 @@ with tab1:
             with col_i2:
                 phone = st.text_input("전화번호", value=clean_val("전화번호"), placeholder="예: 010-1234-5678")
                 
-            default_type = m_data.get("출입구분", "영농인")
-            preset_types = ["영농인", "어로인", "공사인원", "군인", "안보관광", "고정", "성묘객", "임시방문", "기타"]
-            selected_type_preset = st.selectbox("출입 구분 (선택)", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
+            default_type = m_data.get("출입구분", "영농인(고정)")
+            selected_type_preset = st.selectbox("출입 구분 (선택)", ENTRY_TYPE_OPTIONS, index=ENTRY_TYPE_OPTIONS.index(default_type) if default_type in ENTRY_TYPE_OPTIONS else 0)
             
             col_f1, col_f2 = st.columns(2)
             with col_f1:
@@ -576,6 +590,8 @@ with tab2:
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
     st.subheader("📋 고정출입자 명단 추가 / 삭제")
+    st.markdown("💡 **관리 대상:** 출입구분에 **'고정'** 글자가 포함된 항목 또는 **'어로인'** 대상자만 필터링되어 관리됩니다.")
+    
     with st.form("add_fixed_form", clear_on_submit=True):
         f_name = st.text_input("고정 출입자 성명")
         col_mf1, col_mf2 = st.columns(2)
@@ -585,7 +601,7 @@ with tab3:
             f_dest = st.text_input("목적지", placeholder="예: 북삼리 영농지")
         with col_mf2:
             f_phone = st.text_input("전화번호", placeholder="예: 010-1234-5678")
-            f_type = st.selectbox("출입 구분", ["영농인", "어로인", "공사인원", "군인", "안보관광", "고정", "성묘객", "기타"])
+            f_type = st.selectbox("출입 구분", ENTRY_TYPE_OPTIONS)
             f_zone = st.text_input("통제구역", placeholder="예: A구역")
         f_note = st.text_input("기본 비고", placeholder="특이사항 입력")
             
@@ -616,12 +632,18 @@ with tab3:
     for idx, member in enumerate(st.session_state.fixed_members):
         if not member.get("성명", "").strip():
             continue
+        
+        # 🌟 핵심 요청 반영: '고정'이 포함되어 있거나 '어로인'인 항목만 필터링
+        m_type = member.get("출입구분", "")
+        if not ("고정" in m_type or m_type == "어로인"):
+            continue
+
         if fixed_query:
             if not (fixed_query in str(member.get("성명", "")) or fixed_query in str(member.get("전화번호", "")) or fixed_query in str(member.get("차량번호", ""))):
                 continue
         filtered_fixed.append((idx, member))
 
-    st.subheader(f"🗑️ 등록된 고정출입자 목록 (총 {len(filtered_fixed)}명)")
+    st.subheader(f"🗑️ 등록된 고정출입자 명단 (총 {len(filtered_fixed)}명)")
     
     if not filtered_fixed:
         st.info("검색된 고정출입자가 없습니다.")
@@ -667,7 +689,7 @@ with tab4:
                     "성명": clean_t_name,
                     "생년월일": t_birth.strip() if t_birth.strip() else "-",
                     "전화번호": t_phone.strip() if t_phone.strip() else "-",
-                    "출입구분": "임시방문",
+                    "출입구분": "민간인(임시)",
                     "차량번호": t_car.strip() if t_car.strip() else "-",
                     "방문사유": t_reason.strip() or "공문 승인 인원",
                     "시작일": t_start.strftime("%Y-%m-%d"),
@@ -712,54 +734,38 @@ with tab4:
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
-# ==================== [탭 5: 구글 지도 연동] ====================
+# ==================== [탭 5: 구글 지도 연동 (MGRS 좌표계 적용)] ====================
 with tab5:
-    st.subheader("🗺️ GPS 현위치 및 체류 인원 위성 지도")
-    st.markdown("브라우저/기기의 GPS 권한을 통해 **내 현위치**를 지도에 표시하고, 체류 인원의 목적지를 클릭하여 위성 지도로 즉시 확인할 수 있습니다.")
+    st.subheader("🗺️ MGRS 좌표 기반 초소 및 목적지 위성 지도")
+    st.markdown("위도·경도 방식 대신 **MGRS(Military Grid Reference System) 군사 격자 좌표**를 입력하여 지도 위치를 조회합니다.")
 
-    # 🌟 HTML5 Geolocation API를 활용하여 브라우저 GPS 좌표를 받아오는 자바스크립트 컴포넌트
-    gps_html = """
+    # MGRS 좌표 입력 및 지도 조회 컴포넌트
+    mgrs_input_col1, mgrs_input_col2 = st.columns([3, 1])
+    with mgrs_input_col1:
+        input_mgrs = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890")
+    with mgrs_input_col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        mgrs_search_btn = st.button("🗺️ MGRS 좌표로 지도 검색", use_container_width=True)
+
+    if mgrs_search_btn:
+        st.session_state.map_search_target = input_mgrs
+
+    encoded_mgrs = html.escape(st.session_state.map_search_target)
+
+    # 구글 지도 쿼리에 MGRS 좌표 전달 (구글 맵은 텍스트 검색을 지원하므로 MGRS 문자열로 탐색)
+    mgrs_html = f"""
     <div style="background-color: #1e1e1e; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333;">
-        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 GPS 현위치 상태:</span>
-        <span id="gps-status" style="color: #ffb703; margin-left: 10px;">위치 확인 중...</span>
-        <button onclick="getLocation()" style="float: right; background-color: #2d6a4f; color: white; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">내 위치 새로고침</button>
+        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 현재 설정된 MGRS 좌표:</span>
+        <span style="color: #ffb703; margin-left: 10px; font-family: monospace; font-size: 16px;">{encoded_mgrs}</span>
     </div>
-    <div id="map-container" style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 5px; margin-bottom: 20px;">
-        <iframe id="map-frame" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q=%EC%97%B0%EC%B2%9C%EA%B5%B0+%EB%AF%BC%ED%86%B5%EC%84%A0+%EC%B4%88%EC%86%8C&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
+    <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 5px; margin-bottom: 20px;">
+        <iframe width="100%" height="480" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_mgrs}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
     </div>
-
-    <script>
-    function getLocation() {
-        const statusElem = document.getElementById("gps-status");
-        const frameElem = document.getElementById("map-frame");
-        
-        if (navigator.geolocation) {
-            statusElem.innerHTML = "GPS 신호 수신 중...";
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    statusElem.innerHTML = "확인 완료 (위도: " + lat.toFixed(4) + ", 경도: " + lon.toFixed(4) + ")";
-                    // 구글 지도 위성 뷰 위도/경도 좌표로 즉시 업데이트
-                    frameElem.src = "https://maps.google.com/maps?q=" + lat + "," + lon + "&t=k&z=17&ie=UTF8&iwloc=&output=embed";
-                },
-                function(error) {
-                    statusElem.innerHTML = "위치 권한 거부됨 또는 오류 (기본 초소 위치로 표시)";
-                },
-                { timeout: 10000, enableHighAccuracy: true }
-            );
-        } else {
-            statusElem.innerHTML = "이 브라우저는 GPS를 지원하지 않습니다.";
-        }
-    }
-    // 페이지 로드 시 자동 실행
-    getLocation();
-    </script>
     """
-    st.components.v1.html(gps_html, height=520)
+    st.components.v1.html(mgrs_html, height=540)
 
     st.markdown("---")
-    st.subheader("👥 현재 체류 인원 명단 (클릭하여 위성 지도 목적지 이동)")
+    st.subheader("👥 현재 체류 인원 명단 (클릭하여 목적지 MGRS/위치 위성 지도 이동)")
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
     
@@ -787,10 +793,9 @@ with tab5:
                 </div>
             """, unsafe_allow_html=True)
 
-            if st.button(f"📍 [목적지 위성 지도 보기] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
+            if st.button(f"📍 [목적지 지도 위치 보기] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
                 target_q = f"연천군 {v_dest}"
                 encoded_q = html.escape(target_q)
-                # 목적지 선택 시 지도가 해당 위치로 바뀔 수 있도록 렌더링 스크립트 연결
                 dest_html = f"""
                 <div style="border-radius: 12px; overflow: hidden; border: 2px solid #40916c;">
                     <iframe width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_q}&t=k&z=16&ie=UTF8&iwloc=&output=embed"></iframe>
