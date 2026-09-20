@@ -265,7 +265,6 @@ with tab1:
     with right_col:
         st.subheader("📊 체류 인원 목록 (최신순)")
 
-        # 검색 시 체류중 + 퇴영완료 전체 대상에서 검색 가능하도록 수정
         all_logs = [(i, row) for i, row in enumerate(st.session_state.visitors_log)]
         all_logs.reverse()
 
@@ -354,7 +353,12 @@ with tab1:
     st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
     st.subheader("📈 종합 현황판 (현재 체류 인원)")
     
-    all_staying = [row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
+    all_staying = []
+    for item in st.session_state.visitors_log:
+        r = item[1] if isinstance(item, tuple) else item
+        if isinstance(r, dict) and r.get("상태") == "체류중":
+            all_staying.append(r)
+            
     total_count = len(all_staying)
 
     col_stat1, col_stat2 = st.columns([1, 2])
@@ -387,7 +391,12 @@ with tab2:
     out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
     out_list.reverse()
     total_out_count = len(out_list)
-    current_staying_count = len([row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"])
+    
+    current_staying_count = 0
+    for item in st.session_state.visitors_log:
+        r = item[1] if isinstance(item, tuple) else item
+        if isinstance(r, dict) and r.get("상태") == "체류중":
+            current_staying_count += 1
 
     st.subheader("🏁 퇴영 완료된 기록 목록")
 
@@ -479,9 +488,11 @@ with tab2:
             st.info("오늘 퇴영 완료된 인원이 없습니다.")
         else:
             out_type_counts = {}
-            for row in out_list:
-                v_t = row.get("출입구분", "기타")
-                out_type_counts[v_t] = out_type_counts.get(v_t, 0) + 1
+            for item in out_list:
+                row = item[1] if isinstance(item, tuple) else item
+                if isinstance(row, dict):
+                    v_t = row.get("출입구분", "기타")
+                    out_type_counts[v_t] = out_type_counts.get(v_t, 0) + 1
             
             ot_str = " | ".join([f"**{k}**: {v}명" for k, v in out_type_counts.items()])
             st.markdown(f"<br>🏷️ **퇴영 구분별 통계**: {ot_str}", unsafe_allow_html=True)
