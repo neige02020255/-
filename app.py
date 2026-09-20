@@ -5,8 +5,8 @@ import streamlit as st
 
 # ==================== [설정] ====================
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
-# 방금 발급받으신 웹 앱 URL 연동 완료
-APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw9jhKVfSOLNJMI3i0e6E-aV0VvrmbXS4abQ2XxpOlEnn4T3KsG3kwdnBX-7e4CfjROnA/exec"
+# 새로 발급받으신 웹 앱 URL 반영 완료
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx87WTQj9FLlYWiLivD19-2wHbMVtaQAGqvgPc9MgyLrV2khBcyOORdC4_fsDzbTCHY/exec"
 
 # 페이지 기본 설정
 st.set_page_config(page_title="민통초소 실시간 출입 관리", layout="centered")
@@ -110,7 +110,6 @@ else:
             st.markdown(f"입영시간: `{row.get('시간', '-')}`")
         with col3:
             if st.button("퇴영", key=f"out_{row_idx}"):
-                # 퇴영 처리 전송
                 try:
                     payload = {
                         "time": row.get('시간', '-'),
