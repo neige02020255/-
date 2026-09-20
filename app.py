@@ -10,24 +10,39 @@ APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx87WTQj9FLlYWiLivD19
 # 페이지 기본 설정
 st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="centered")
 
-# ==================== [커스텀 CSS 디자인 스타일] ====================
+# ==================== [다크모드 CSS 디자인 스타일] ====================
 st.markdown("""
     <style>
+    /* 전체 앱 배경 진한 어두운 색 */
     .stApp {
-        background-color: #f4f6f5;
+        background-color: #121212;
+        color: #e0e0e0;
     }
+    
+    /* 카드 박스 다크 테마 */
     .css-card {
-        background-color: white;
+        background-color: #1e1e1e;
         padding: 18px;
         border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         margin-bottom: 12px;
-        border-left: 5px solid #2d6a4f;
+        border-left: 5px solid #40916c;
+        color: #ffffff;
     }
-    h1, h2, h3 {
-        font-family: 'Malgun Gothic', sans-serif;
-        color: #1b4332;
+    
+    /* 제목 및 텍스트 밝은 색상 고정 */
+    h1, h2, h3, h4, h5, h6, p, span, label {
+        color: #ffffff !important;
     }
+    
+    /* 입력창(텍스트박스, 셀렉트박스) 배경과 글자색 */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+        background-color: #2b2b2b !important;
+        color: #ffffff !important;
+        border-radius: 8px;
+    }
+    
+    /* 배지 박스 */
     .badge-box {
         background-color: #2d6a4f;
         color: white;
@@ -68,7 +83,7 @@ if not st.session_state.logged_in:
 st.markdown("""
     <div>
         <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
-        <h2 style='margin: 5px 0 0 0; color: #1b4332;'>민통초소 실시간 출입 관리 시스템</h2>
+        <h2 style='margin: 5px 0 0 0;'>민통초소 실시간 출입 관리 시스템</h2>
     </div>
 """, unsafe_allow_html=True)
 
@@ -78,7 +93,7 @@ with col_logout:
         st.session_state.logged_in = False
         st.rerun()
 
-st.markdown("<hr style='margin: 10px 0 20px 0;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
 # 1. 출입자 등록 섹션
 st.subheader("📝 출입자 등록 (입영)")
@@ -103,7 +118,6 @@ with st.container():
                 st.warning("⚠️ 성명을 입력해주세요.")
             else:
                 time_now = datetime.now().strftime("%H:%M")
-                # 구글 시트 헤더 컬럼명과 정확히 일치하도록 페이로드 수정 완료
                 payload = {
                     "시간": time_now,
                     "소속": v_type,
@@ -138,16 +152,13 @@ try:
 except Exception:
     visitors_data = []
 
-# 체류 중인 항목만 필터링 (행 번호와 함께)
 staying_list = [(i+2, row) for i, row in enumerate(visitors_data) if row.get("상태") == "체류중"]
 
 if not staying_list:
     st.info("💡 현재 초소 통제구역 내 체류 중인 인원이 없습니다.")
 else:
-    # 🔍 400명 대규모 인원에 대비한 실시간 검색 입력창 추가
-    search_query = st.text_input("🔍 출입자 검색 (성명 또는 차량번호 입력)", placeholder="이름이나 차량번호를 입력하면 바로 찾아줍니다")
+    search_query = st.text_input("🔍 출입자 검색 (성명 또는 차량번호 입력)", placeholder="이름이나 차량번호를 입력하세요")
     
-    # 검색어가 있으면 필터링
     if search_query:
         filtered_list = []
         for idx, row in staying_list:
@@ -159,7 +170,7 @@ else:
     else:
         display_list = staying_list
 
-    st.markdown(f"<p style='color: #666; font-size: 14px;'>총 체류 인원: <b>{len(staying_list)}명</b> (검색 결과: {len(display_list)}명)</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 체류 인원: <b>{len(staying_list)}명</b> (검색 결과: {len(display_list)}명)</p>", unsafe_allow_html=True)
 
     if not display_list:
         st.warning("🔍 검색 결과가 없습니다.")
@@ -170,11 +181,10 @@ else:
                     <div class="css-card">
                         <b>[{row.get('소속', '-')}] {row.get('성명', '-')}</b><br>
                         🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
-                        <span style="color: #6c757d; font-size: 13px;">입영 시각: {row.get('시간', '-')}</span>
+                        <span style="color: #aaaaaa; font-size: 13px;">입영 시각: {row.get('시간', '-')}</span>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # 퇴영 처리 버튼
                 if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
                     try:
                         payload = {
@@ -190,3 +200,5 @@ else:
                     except Exception:
                         pass
                     st.rerun()
+
+            
