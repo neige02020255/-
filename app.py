@@ -13,7 +13,7 @@ TEMP_MEMBERS_FILE = "temp_members.json"
 VISITORS_LOG_FILE = "visitors_log.json"
 
 # 페이지 기본 설정 (와이드 모드 적용)
-st.set_page_config(page_title="제25보병사단 비룡부대 출입 관리", layout="wide")
+st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
 
 ENTRY_TYPE_OPTIONS = [
     "영농인(고정)", "영농인(임시)", "공사(고정)", "공사(임시)", 
@@ -133,7 +133,7 @@ if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("## 🔒 비룡부대 통제시스템")
+        st.markdown("## 🔒 비룡부대 초소 통제시스템")
         st.markdown("접속 비밀번호를 입력해주세요.")
         with st.form("login_form"):
             input_pw = st.text_input("비밀번호", type="password")
@@ -152,7 +152,7 @@ with col_title:
     st.markdown("""
         <div>
             <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
-            <h2 style='margin: 5px 0 0 0;'>비룡부대 출입 관리 시스템</h2>
+            <h2 style='margin: 5px 0 0 0;'>비룡부대 초소 실시간 출입 관리 시스템</h2>
         </div>
     """, unsafe_allow_html=True)
 
@@ -519,11 +519,15 @@ with tab1:
                 <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(all_staying)} 명</p>
             </div>
         """, unsafe_allow_html=True)
-        st.markdown("##### 📌 체류인원 세부 현황")
+        st.markdown("##### 📌 체류인원 세부 현황 (구역별 / 출입구분별)")
         if all_staying:
             df_staying = pd.DataFrame(all_staying)
             zone_col = "구역" if "구역" in df_staying.columns else ("통제구역" if "통제구역" in df_staying.columns else None)
-            if zone_col:
+            if zone_col and "출입구분" in df_staying.columns:
+                df_staying_cnt = df_staying.groupby([zone_col, "출입구분"]).size().reset_index(name="인원(명)")
+                df_staying_cnt.columns = ["통제 구역", "출입 구분", "인원(명)"]
+                st.dataframe(df_staying_cnt, use_container_width=True, hide_index=True)
+            elif zone_col:
                 df_zone_cnt = df_staying[zone_col].value_counts().reset_index()
                 df_zone_cnt.columns = ["통제 구역", "체류 인원(명)"]
                 st.dataframe(df_zone_cnt, use_container_width=True, hide_index=True)
@@ -599,11 +603,15 @@ with tab2:
                 <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(all_staying_t2)} 명</p>
             </div>
         """, unsafe_allow_html=True)
-        st.markdown("##### 📌 체류인원 세부 현황")
+        st.markdown("##### 📌 체류인원 세부 현황 (구역별 / 출입구분별)")
         if all_staying_t2:
             df_staying_t2 = pd.DataFrame(all_staying_t2)
             zone_col_t2 = "구역" if "구역" in df_staying_t2.columns else ("통제구역" if "통제구역" in df_staying_t2.columns else None)
-            if zone_col_t2:
+            if zone_col_t2 and "출입구분" in df_staying_t2.columns:
+                df_staying_cnt_t2 = df_staying_t2.groupby([zone_col_t2, "출입구분"]).size().reset_index(name="인원(명)")
+                df_staying_cnt_t2.columns = ["통제 구역", "출입 구분", "인원(명)"]
+                st.dataframe(df_staying_cnt_t2, use_container_width=True, hide_index=True)
+            elif zone_col_t2:
                 df_zone_cnt_t2 = df_staying_t2[zone_col_t2].value_counts().reset_index()
                 df_zone_cnt_t2.columns = ["통제 구역", "체류 인원(명)"]
                 st.dataframe(df_zone_cnt_t2, use_container_width=True, hide_index=True)
@@ -779,7 +787,7 @@ with tab4:
                 save_temp_members(st.session_state.temp_members)
                 st.success("삭제되었습니다.")
                 st.rerun()
-        st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=Type)
 
 # ==================== [탭 5: 지도 연동] ====================
 with tab5:
