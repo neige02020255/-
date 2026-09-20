@@ -144,8 +144,8 @@ if not st.session_state.logged_in:
                     st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# ==================== [메인 화면 상단] ====================
-col_title, col_btn1, col_btn2 = st.columns([6, 1.2, 1.2])
+# ==================== [메인 화면 상단 (배너 및 우측 긴급문자/지도연동 배치)] ====================
+col_title, col_btns = st.columns([4, 2])
 
 with col_title:
     st.markdown("""
@@ -155,19 +155,17 @@ with col_title:
         </div>
     """, unsafe_allow_html=True)
 
-with col_btn1:
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚨 긴급문자", use_container_width=True):
+with col_btns:
+    # 위쪽: 긴급문자 (빨간색 강조 버튼 느낌)
+    if st.button("🚨 긴급문자", use_container_width=True, type="primary"):
         st.session_state.emergency_step = 1
         st.rerun()
-
-with col_btn2:
-    st.markdown("<br>", unsafe_allow_html=True)
+    # 아래쪽: 지도연동 (파란색 테두리/느낌의 버튼)
     if st.button("🗺️ 지도연동", use_container_width=True):
         st.session_state.show_map_panel = not st.session_state.show_map_panel
         st.rerun()
 
-st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin: 15px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
 # ==================== [긴급 문자 3중 경고 팝업 및 서식 화면] ====================
 @st.dialog("🚨 [긴급 경고 1단계] 발송 확인")
@@ -273,7 +271,7 @@ if st.session_state.emergency_step == 4:
             
     st.markdown("<hr style='margin: 30px 0; border-color: #444;'>", unsafe_allow_html=True)
 
-# 우측 상단 지도연동 토글 패널
+# 토글형 지도연동 패널
 if st.session_state.show_map_panel:
     st.markdown("""
         <div style="background-color: #1a2332; padding: 20px; border-radius: 10px; border: 2px solid #415a77; margin-bottom: 20px;">
