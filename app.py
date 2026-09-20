@@ -143,7 +143,7 @@ with col_logout:
 
 st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-# ----------------- [탭 메뉴 구성 (임시출입자 탭 추가)] -----------------
+# ----------------- [탭 메뉴 구성] -----------------
 tab1, tab2, tab3, tab4 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리"])
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
@@ -173,10 +173,8 @@ with tab1:
                 clean_name = typed_name.strip()
                 
                 if clean_name:
-                    # 고정출입자 + 유효한 임시출입자 통합 검색
                     matches = [m for m in st.session_state.fixed_members if m.get("성명") == clean_name]
                     temp_matches = [t for t in st.session_state.temp_members if t.get("성명") == clean_name]
-                    
                     total_found = matches + temp_matches
                     
                     if len(total_found) == 1:
@@ -359,14 +357,11 @@ with tab1:
 with tab2:
     out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
     out_list.reverse()
-    total_out_count = len(out_list)
-    current_staying_count = sum(1 for item in st.session_state.visitors_log if (item[1] if isinstance(item, tuple) else item).get("상태") == "체류중")
-
     st.subheader("🏁 퇴영 완료된 기록 목록")
     if not out_list:
         st.info("💡 오늘 퇴영 완료된 기록이 없습니다.")
     else:
-        for row_idx, row in out_list[:10]: # 최근 10개 표시
+        for row_idx, row in out_list[:10]:
             st.markdown(f"""
                 <div class="css-card">
                     <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c;">[{row.get('출입구분', '-')}]</span><br>
@@ -375,7 +370,7 @@ with tab2:
                 </div>
             """, unsafe_allow_html=True)
 
-# ==================== [탭 3: 고정출입자 명단 관리 (삭제 안전장치 추가)] ====================
+# ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
     st.subheader("📋 고정출입자 명단 추가 / 삭제")
     with st.form("add_fixed_form", clear_on_submit=True):
@@ -411,7 +406,6 @@ with tab3:
             st.markdown(f"**👤 {member['성명']}** [{member.get('출입구분', '-')}] | 🎂 {member.get('생년월일', '-')} | 📞 {member.get('전화번호', '-')}")
             st.markdown(f"<span style='color:#aaa; font-size:13px;'>🚗 {member.get('차량번호', '-')} | 📍 {member.get('목적지', '-')} | 🛡️ {member.get('통제구역', '-')}</span>", unsafe_allow_html=True)
         with col_l2:
-            # 실수 방지 안전장치: 체크박스를 체크해야만 삭제 버튼 활성화
             confirm_del = st.checkbox("삭제 확인", key=f"chk_fixed_{idx}")
             if st.button("삭제", key=f"del_fixed_{idx}", use_container_width=True, disabled=not confirm_del):
                 st.session_state.fixed_members.pop(idx)
@@ -420,7 +414,7 @@ with tab3:
                 st.rerun()
         st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
-# ==================== [탭 4: 임시출입자 명단 관리 (신설)] ====================
+# ==================== [탭 4: 임시출입자 명단 관리] ====================
 with tab4:
     st.subheader("📋 임시출입자 명단 관리 (공문 및 사전승인 인원)")
     st.markdown("공문 등으로 사전 승인된 방문객을 등록합니다. 설정한 **종료일**이 지나면 자동으로 명단에서 정리됩니다.")
@@ -439,9 +433,10 @@ with tab4:
         t_reason = st.text_input("방문 사유 / 공문 내용", placeholder="통신망 보수 공사 공문")
         
         if st.form_submit_button("➕ 임시출입자 사전등록", use_container_width=True):
-            if t_name.strip():
+            clean_t_name = t_name.strip()
+            if clean_t_name:
                 new_temp = {
-                    "성명": t_name.strip(),
+                    "성명": clean_t_name,
                     "생년월일": t_birth.strip() or "-",
                     "전화번호": t_phone.strip() or "-",
                     "출입구분": "임시방문",
@@ -453,7 +448,7 @@ with tab4:
                 }
                 st.session_state.temp_members.append(new_temp)
                 save_temp_members(st.session_state.temp_members)
-                st.success(f"✅ [{t_name.strip()] 님 임시 등록 완료 (~{t_end})")
+                st.success(f"✅ [{clean_t_name}] 님 임시 등록 완료 (~{t_end})")
                 st.rerun()
             else:
                 st.warning("⚠️ 성명 또는 업체명은 필수입니다.")
