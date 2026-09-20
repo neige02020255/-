@@ -13,7 +13,7 @@ TEMP_MEMBERS_FILE = "temp_members.json"
 VISITORS_LOG_FILE = "visitors_log.json"
 
 # 페이지 기본 설정 (와이드 모드 적용)
-st.set_page_config(page_title="제25보병사단 비룡부대출입 관리", layout="wide")
+st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
 
 ENTRY_TYPE_OPTIONS = [
     "영농인(고정)", "영농인(임시)", "공사(고정)", "공사(임시)", 
@@ -133,7 +133,7 @@ if not st.session_state.logged_in:
     st.markdown("<br><br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("## 🔒 비룡부대 통제시스템")
+        st.markdown("## 🔒 비룡부대 초소 통제시스템")
         st.markdown("접속 비밀번호를 입력해주세요.")
         with st.form("login_form"):
             input_pw = st.text_input("비밀번호", type="password")
@@ -145,14 +145,14 @@ if not st.session_state.logged_in:
                     st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# ==================== [메인 화면 상단 (비룡부대 배너 및 우측 빨간/파란 버튼 배치)] ====================
+# ==================== [메인 화면 상단] ====================
 col_title, col_btns = st.columns([4, 2])
 
 with col_title:
     st.markdown("""
         <div>
             <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
-            <h2 style='margin: 5px 0 0 0;'>비룡부대 출입관리 시스템</h2>
+            <h2 style='margin: 5px 0 0 0;'>비룡부대 초소 실시간 출입 관리 시스템</h2>
         </div>
     """, unsafe_allow_html=True)
 
@@ -166,7 +166,7 @@ with col_btns:
 
 st.markdown("<hr style='margin: 15px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-# ==================== [긴급 문자 3중 경고 팝업 및 서식 화면] ====================
+# ==================== [긴급 문자 3중 경고 및 서식] ====================
 @st.dialog("🚨 [긴급 경고 1단계] 발송 확인")
 def step_1_warning():
     st.error("정말로 긴급 문자를 발송하시겠습니까?")
@@ -223,7 +223,6 @@ if st.session_state.emergency_step == 4:
     """, unsafe_allow_html=True)
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
-    
     st.markdown("#### 📋 수신 대상 선택 및 확인 목록")
     selected_recipients = []
     
@@ -305,7 +304,7 @@ with tab1:
         st.markdown("""
             - **입영 등록**: 방문자 성명 입력 후 '정보 불러오기' 시 동명이인이나 공문 인원이 있을 경우 선택 창이 활성화됩니다.<br>
             - **실시간 체류 관리**: 현재 비룡부대 인근 체류 중인 인원을 확인하고 퇴영 처리할 수 있습니다.<br>
-            - **종합 현황판**: 화면 하단에서 오늘 총 입영, 현재 총 체류, 오늘 총 퇴영 인원 통계 및 **출입 구분별·구역별 상세 표**를 파악할 수 있습니다.
+            - **종합 현황판**: 화면 하단 각 통계 박스 아래에 **입영, 체류(구분별/구역별), 퇴영 세부 현황표**가 각각 깔끔하게 정돈되어 제공되며, 엑셀 다운로드가 가능합니다.
         """, unsafe_allow_html=True)
 
     left_col, right_col = st.columns([1, 1], gap="large")
@@ -480,71 +479,98 @@ with tab1:
                     if st.button("다음 ▶", use_container_width=True, key="next_staying") and st.session_state.staying_page < total_pages:
                         st.session_state.staying_page += 1; st.rerun()
 
-    # 탭 1 종합 현황판 하단
+    # 탭 1 종합 현황판 하단 (각 상단 박스 밑에 세부현황 배치)
     today_str = get_kts_date()
     today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
     all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
-    today_out = [r for r in today_entered if r.get("상태") == "퇴영완료"]
+    today_out = [r for r in today_entered if r.get("상태"] == "퇴영완료"]
 
     st.markdown("""
         <div class="dashboard-box">
-            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 현황판 (오늘 기준)</h3>
+            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 통계 및 세부 현황판 (오늘 기준)</h3>
     """, unsafe_allow_html=True)
 
     cs1, cs2, cs3 = st.columns(3)
+    
+    # 1. 오늘 총 입영 인원 박스 및 세부현황
     with cs1:
         st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
+            <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">오늘 총 입영 인원</h4>
                 <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(today_entered)} 명</p>
             </div>
         """, unsafe_allow_html=True)
+        st.markdown("<p style='font-size:14px; font-weight:bold; margin-bottom:5px; color:#90e0ef;'>📋 입영 세부현황 (구분별)</p>", unsafe_allow_html=True)
+        if today_entered:
+            df_in = pd.DataFrame(today_entered)
+            if "출입구분" in df_in.columns:
+                df_in_cnt = df_in["출입구분"].value_counts().reset_index()
+                df_in_cnt.columns = ["출입구분", "인원(명)"]
+                st.dataframe(df_in_cnt, use_container_width=True, hide_index=True, height=140)
+            else:
+                st.info("데이터 없음")
+        else:
+            st.info("오늘 입영 기록 없음")
+
+    # 2. 현재 총 체류 인원 박스 및 세부현황 (출입구분 & 통제구역 따로 표기)
     with cs2:
         st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
+            <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
                 <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(all_staying)} 명</p>
             </div>
         """, unsafe_allow_html=True)
+        st.markdown("<p style='font-size:14px; font-weight:bold; margin-bottom:5px; color:#90e0ef;'>📋 체류 세부현황 (구분별 / 구역별)</p>", unsafe_allow_html=True)
+        if all_staying:
+            df_stay = pd.DataFrame(all_staying)
+            st.markdown("<span style='font-size:12px; color:#aaa;'>• 출입 구분별</span>", unsafe_allow_html=True)
+            if "출입구분" in df_stay.columns:
+                df_stay_type = df_stay["출입구분"].value_counts().reset_index()
+                df_stay_type.columns = ["출입구분", "인원"]
+                st.dataframe(df_stay_type, use_container_width=True, hide_index=True, height=110)
+            
+            st.markdown("<span style='font-size:12px; color:#aaa;'>• 통제 구역별</span>", unsafe_allow_html=True)
+            zone_key = "구역" if "구역" in df_stay.columns else ("통제구역" if "통제구역" in df_stay.columns else None)
+            if zone_key:
+                df_stay_zone = df_stay[zone_key].value_counts().reset_index()
+                df_stay_zone.columns = ["통제구역", "인원"]
+                st.dataframe(df_stay_zone, use_container_width=True, hide_index=True, height=110)
+        else:
+            st.info("현재 체류 인원 없음")
+
+    # 3. 오늘 총 퇴영 인원 박스 및 세부현황
     with cs3:
         st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
+            <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
                 <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(today_out)} 명</p>
             </div>
         """, unsafe_allow_html=True)
-    
+        st.markdown("<p style='font-size:14px; font-weight:bold; margin-bottom:5px; color:#90e0ef;'>📋 퇴영 세부현황 (구분별)</p>", unsafe_allow_html=True)
+        if today_out:
+            df_out = pd.DataFrame(today_out)
+            if "출입구분" in df_out.columns:
+                df_out_cnt = df_out["출입구분"].value_counts().reset_index()
+                df_out_cnt.columns = ["출입구분", "인원(명)"]
+                st.dataframe(df_out_cnt, use_container_width=True, hide_index=True, height=140)
+            else:
+                st.info("데이터 없음")
+        else:
+            st.info("오늘 퇴영 기록 없음")
+
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # [추가됨] 표 형식의 세부 현황 지표 (출입 구분별 / 통제 구역별)
-    t_col1, t_col2 = st.columns(2)
-    
-    with t_col1:
-        st.markdown("#### 👤 출입 구분별 인원 현황")
-        if today_entered:
-            df_today = pd.DataFrame(today_entered)
-            if "출입구분" in df_today.columns:
-                df_type_cnt = df_today["출입구분"].value_counts().reset_index()
-                df_type_cnt.columns = ["출입 구분", "인원(명)"]
-                st.dataframe(df_type_cnt, use_container_width=True, hide_index=True)
-            else:
-                st.info("출입구분 데이터가 없습니다.")
-        else:
-            st.info("오늘 출입 기록이 없습니다.")
-            
-    with t_col2:
-        st.markdown("#### 🛡️ 통제 구역별 체류 인원 현황")
-        if all_staying:
-            df_staying = pd.DataFrame(all_staying)
-            zone_col = "구역" if "구역" in df_staying.columns else ("통제구역" if "통제구역" in df_staying.columns else None)
-            if zone_col:
-                df_zone_cnt = df_staying[zone_col].value_counts().reset_index()
-                df_zone_cnt.columns = ["통제 구역", "체류 인원(명)"]
-                st.dataframe(df_zone_cnt, use_container_width=True, hide_index=True)
-            else:
-                st.info("구역 데이터가 없습니다.")
-        else:
-            st.info("현재 체류 중인 인원이 없습니다.")
+    # 엑셀 다운로드 버튼 (CSV 포맷)
+    if st.session_state.visitors_log:
+        df_export = pd.DataFrame(st.session_state.visitors_log)
+        csv_data = df_export.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 현재 전체 출입 기록 엑셀(CSV) 다운로드",
+            data=csv_data,
+            file_name=f"비룡초소_출입기록_{get_kts_date()}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -552,8 +578,8 @@ with tab1:
 with tab2:
     with st.expander("📖 [사용법 안내] 퇴영 목록 및 세부 현황", expanded=False):
         st.markdown("""
-            - **퇴영 세부 현황**: 오늘 날짜 기준으로 입영, 체류, 퇴영 인원 통계 현황 및 **출입 구분·구역별 표**를 한눈에 파악할 수 있습니다.<br>
-            - 오늘 퇴영 완료된 인원 목록 및 전체 누적 출입 기록을 검색할 수 있습니다.
+            - **퇴영 세부 현황**: 오늘 날짜 기준으로 입영, 체류(구분별/구역별), 퇴영 인원 통계 현황을 각 박스 아래에서 바로 확인할 수 있습니다.<br>
+            - 오늘 퇴영 완료된 인원 목록 및 전체 누적 출입 기록 검색 및 엑셀 다운로드가 가능합니다.
         """, unsafe_allow_html=True)
 
     today_str = get_kts_date()
@@ -563,62 +589,65 @@ with tab2:
 
     st.markdown("""
         <div class="dashboard-box" style="margin-top: 5px; margin-bottom: 25px;">
-            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📊 퇴영 및 출입 세부 현황 (오늘 기준)</h3>
+            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📊 퇴영 및 출입 세부 통계 (오늘 기준)</h3>
     """, unsafe_allow_html=True)
 
     ts1, ts2, ts3 = st.columns(3)
+    
     with ts1:
         st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
+            <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">오늘 총 입영</h4>
                 <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(today_entered_t2)} 명</p>
             </div>
         """, unsafe_allow_html=True)
+        st.markdown("<p style='font-size:13px; font-weight:bold; color:#90e0ef;'>입영 세부현황</p>", unsafe_allow_html=True)
+        if today_entered_t2:
+            df_in_t2 = pd.DataFrame(today_entered_t2)
+            if "출입구분" in df_in_t2.columns:
+                st.dataframe(df_in_t2["출입구분"].value_counts().reset_index(), use_container_width=True, hide_index=True, height=130)
+
     with ts2:
         st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
+            <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">현재 체류 중</h4>
                 <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(all_staying_t2)} 명</p>
             </div>
         """, unsafe_allow_html=True)
+        st.markdown("<p style='font-size:13px; font-weight:bold; color:#90e0ef;'>체류 세부현황 (구분/구역)</p>", unsafe_allow_html=True)
+        if all_staying_t2:
+            df_st_t2 = pd.DataFrame(all_staying_t2)
+            st.markdown("<span style='font-size:11px; color:#aaa;'>• 출입구분별</span>", unsafe_allow_html=True)
+            if "출입구분" in df_st_t2.columns:
+                st.dataframe(df_st_t2["출입구분"].value_counts().reset_index(), use_container_width=True, hide_index=True, height=90)
+            st.markdown("<span style='font-size:11px; color:#aaa;'>• 통제구역별</span>", unsafe_allow_html=True)
+            z_col = "구역" if "구역" in df_st_t2.columns else ("통제구역" if "통제구역" in df_st_t2.columns else None)
+            if z_col:
+                st.dataframe(df_st_t2[z_col].value_counts().reset_index(), use_container_width=True, hide_index=True, height=90)
+
     with ts3:
         st.markdown(f"""
-            <div class="stat-card" style="margin-bottom: 5px;">
+            <div class="stat-card">
                 <h4 style="margin:0; color:#90e0ef;">오늘 퇴영 완료</h4>
                 <p style="font-size: 22px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{len(today_out_t2)} 명</p>
             </div>
         """, unsafe_allow_html=True)
-        
+        st.markdown("<p style='font-size:13px; font-weight:bold; color:#90e0ef;'>퇴영 세부현황</p>", unsafe_allow_html=True)
+        if today_out_t2:
+            df_out_t2 = pd.DataFrame(today_out_t2)
+            if "출입구분" in df_out_t2.columns:
+                st.dataframe(df_out_t2["출입구분"].value_counts().reset_index(), use_container_width=True, hide_index=True, height=130)
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
-    # [추가됨] 탭 2 상단 세부 현황 표 형태 추가
-    tt_col1, tt_col2 = st.columns(2)
-    with tt_col1:
-        st.markdown("#### 👤 출입 구분별 인원 현황")
-        if today_entered_t2:
-            df_today_t2 = pd.DataFrame(today_entered_t2)
-            if "출입구분" in df_today_t2.columns:
-                df_type_cnt_t2 = df_today_t2["출입구분"].value_counts().reset_index()
-                df_type_cnt_t2.columns = ["출입 구분", "인원(명)"]
-                st.dataframe(df_type_cnt_t2, use_container_width=True, hide_index=True)
-            else:
-                st.info("출입구분 데이터가 없습니다.")
-        else:
-            st.info("오늘 출입 기록이 없습니다.")
-            
-    with tt_col2:
-        st.markdown("#### 🛡️ 통제 구역별 체류 인원 현황")
-        if all_staying_t2:
-            df_staying_t2 = pd.DataFrame(all_staying_t2)
-            zone_col_t2 = "구역" if "구역" in df_staying_t2.columns else ("통제구역" if "통제구역" in df_staying_t2.columns else None)
-            if zone_col_t2:
-                df_zone_cnt_t2 = df_staying_t2[zone_col_t2].value_counts().reset_index()
-                df_zone_cnt_t2.columns = ["통제 구역", "체류 인원(명)"]
-                st.dataframe(df_zone_cnt_t2, use_container_width=True, hide_index=True)
-            else:
-                st.info("구역 데이터가 없습니다.")
-        else:
-            st.info("현재 체류 중인 인원이 없습니다.")
+    if st.session_state.visitors_log:
+        df_export_t2 = pd.DataFrame(st.session_state.visitors_log)
+        st.download_button(
+            label="📥 퇴영 탭 - 전체 출입 기록 엑셀(CSV) 다운로드",
+            data=df_export_t2.to_csv(index=False).encode('utf-8-sig'),
+            file_name=f"비룡초소_출입기록_퇴영탭_{get_kts_date()}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
