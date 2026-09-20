@@ -85,7 +85,7 @@ def save_visitors_log(logs):
     except Exception as e:
         st.error(f"출입 기록 저장 중 오류 발생: {e}")
 
-# ==================== [CSS 및 스타일] ====================
+# ==================== [CSS 및 스타일 (스와이프 탭 활성화 포함)] ====================
 st.markdown("""
     <style>
     .stApp { background-color: #121212; color: #e0e0e0; }
@@ -117,6 +117,11 @@ st.markdown("""
     .stButton button {
         font-size: 18px !important; font-weight: bold !important; padding-top: 10px !important; padding-bottom: 10px !important;
     }
+    /* 🌟 모바일 좌우 스와이프 탭 전환 허용 스타일 */
+    [data-baseweb="tab-list"] {
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -135,6 +140,8 @@ if "fixed_members" not in st.session_state:
     st.session_state.fixed_members = load_fixed_members()
 if "temp_members" not in st.session_state:
     st.session_state.temp_members = load_temp_members()
+if "map_search_target" not in st.session_state:
+    st.session_state.map_search_target = "연천군 민통선 초소"
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -176,16 +183,16 @@ with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클�
         <div class="guide-box">
             <b>1. 🚀 출입 관리 및 현황 탭</b><br>
             - <b>입영 등록</b>: 방문자 성명을 입력 후 '정보 불러오기'를 누르면 고정/임시 명단과 자동 연동됩니다.<br>
-            - <b>실시간 체류 관리</b>: 현재 체류 중인 인원을 5명씩 페이징으로 확인하고 퇴영 처리할 수 있습니다.<br>
-            - <b>종합 현황판</b>: 오늘 총 입영, 현재 총 체류, 오늘 총 퇴영 인원과 세부 구역/구분별 통계를 파악할 수 있습니다.<br><br>
+            - <b>실시간 체류 관리</b>: 현재 체류 중인 인원을 확인하고 퇴영 처리할 수 있습니다.<br>
+            - <b>종합 현황판</b>: 오늘 총 입영, 현재 총 체류, 오늘 총 퇴영 인원 통계를 파악할 수 있습니다.<br><br>
             <b>2. 🏁 퇴영 목록 탭</b><br>
-            - 오늘 퇴영 완료된 인원 목록을 확인하고 검색할 수 있으며, 하단에서 전체 누적 기록을 조회할 수 있습니다.<br><br>
+            - 오늘 퇴영 완료된 인원 목록을 검색하고, 하단에서 전체 누적 기록을 조회할 수 있습니다.<br><br>
             <b>3. 📋 고정출입자 명단 관리 탭</b><br>
             - 영농인, 공사인원 등 고정 출입 대상자를 등록하고 관리합니다.<br><br>
             <b>4. 📋 임시출입자 명단 관리 탭</b><br>
             - 공문 등으로 사전 승인된 방문객을 등록하며, 종료일이 지나면 자동 정리됩니다.<br><br>
             <b>5. 🗺️ 구글 지도 연동 탭</b><br>
-            - 체류 중인 인원을 선택하거나 검색하여 해당 인원의 **목적지/구역** 위치를 **위성 지도(Satellite)**로 즉시 확인할 수 있습니다.
+            - 상단 검색을 통하거나, 체류 인원 명단 카드에서 <b>[목적지 지도]</b> 또는 <b>[통제구역 지도]</b>를 클릭하여 위성 지도를 즉시 조회할 수 있습니다.
         </div>
     """, unsafe_allow_html=True)
 
@@ -707,40 +714,61 @@ with tab4:
 # ==================== [탭 5: 구글 지도 연동] ====================
 with tab5:
     st.subheader("🗺️ 체류 인원 연동 위성 지도")
-    st.markdown("현재 체류 중인 인원의 **목적지** 또는 **통제구역**을 선택하거나 검색하여 위성 지도로 즉시 위치를 확인할 수 있습니다.")
+    st.markdown("현재 체류 중인 인원의 **목적지**나 **통제구역**을 직접 클릭하거나 검색하여 위성 지도로 즉시 위치를 확인할 수 있습니다.")
 
-    # 현재 체류 중인 인원 추출
+    # 지도 검색어 입력창 (상태 유지)
+    map_search_input = st.text_input("📍 지도 검색어 입력 (지역, 목적지, 구역 등)", value=st.session_state.map_search_target, placeholder="예: 연천군 북삼리, A구역 등")
+    if map_search_input != st.session_state.map_search_target:
+        st.session_state.map_search_target = map_search_input
+
+    # 위성 지도 렌더링
+    encoded_query = st.session_state.map_search_target.replace(" ", "+")
+    google_map_url = f"https://maps.google.com/maps?q={encoded_query}&t=k&z=15&ie=UTF8&iwloc=&output=embed"
+
+    st.markdown(f"""
+        <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 10px; margin-bottom: 20px;">
+            <iframe src="{google_map_url}" width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.subheader("👥 현재 체류 인원 명단 (클릭하여 위성 지도 이동)")
+
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
+    
+    map_query_filter = st.text_input("🔍 체류 인원 명단 검색", placeholder="이름, 목적, 구역 검색", key="map_member_search_filter")
 
-    if not staying_visitors:
-        st.info("💡 현재 체류 중인 인원이 없어 직접 검색 모드로 동작합니다.")
-        default_search = "연천군 민통선 초소"
+    if map_query_filter:
+        filtered_staying = [v for v in staying_visitors if map_query_filter in str(v.get("성명", "")) or map_query_filter in str(v.get("목적", "")) or map_query_filter in str(v.get("구역", ""))]
     else:
-        # 셀렉트박스용 옵션 생성 ([이름] 구분 - 목적지 / 구역)
-        visitor_options = ["직접 입력/검색"] + [f"{v.get('성명')} ({v.get('출입구분')}) - 목적: {v.get('목적')}, 구역: {v.get('구역')}" for v in staying_visitors]
-        
-        selected_visitor_choice = st.selectbox("👥 체류 인원 선택하여 위치 이동", visitor_options)
+        filtered_staying = staying_visitors
 
-        if selected_visitor_choice != "직접 입력/검색":
-            # 선택된 인원의 인덱스 추출 후 목적지/구역을 기본 검색어로 설정
-            chosen_idx = visitor_options.index(selected_visitor_choice) - 1
-            target_visitor = staying_visitors[chosen_idx]
-            # 목적지나 구역 키워드를 조합하여 지도 검색어로 활용
-            default_search = f"연천군 {target_visitor.get('목적', '')} {target_visitor.get('구역', '')}".strip()
-        else:
-            default_search = "연천군 민통선 초소"
+    if not filtered_staying:
+        st.info("💡 현재 체류 중인 인원이 없거나 검색 결과가 없습니다.")
+    else:
+        for idx, v_row in enumerate(filtered_staying):
+            v_name = v_row.get("성명", "-")
+            v_type = v_row.get("출입구분", "-")
+            v_dest = v_row.get("목적", "-")
+            v_zone = v_row.get("구역", "-")
+            v_car = v_row.get("차량", "-")
+            v_phone = v_row.get("전화번호", "-")
 
-    map_search_query = st.text_input("📍 지도 검색어 확인 및 수정", value=default_search, placeholder="예: 연천군 북삼리, A구역 등")
+            st.markdown(f"""
+                <div class="css-card" style="padding: 12px 18px; margin-bottom: 8px;">
+                    <b style="font-size:16px;">👤 {v_name}</b> <span style="color:#40916c;">[{v_type}]</span> | 🚗 차량: {v_car} | 📞 연락처: {v_phone}<br>
+                    📍 목적지: <b style="color:#90e0ef;">{v_dest}</b> &nbsp;|&nbsp; 🛡️ 통제구역: <b style="color:#ffb703;">{v_zone}</b>
+                </div>
+            """, unsafe_allow_html=True)
 
-    if map_search_query:
-        encoded_query = map_search_query.replace(" ", "+")
-        # 🌟 기본 위성(Satellite) 뷰 적용 (t=k)
-        google_map_url = f"https://maps.google.com/maps?q={encoded_query}&t=k&z=15&ie=UTF8&iwloc=&output=embed"
-
-        st.markdown(f"""
-            <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 15px;">
-                <iframe src="{google_map_url}" width="100%" height="550" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown(f"<p style='text-align: right; color: #888; font-size: 13px; margin-top: 5px;'>현재 조회 위성 위치: <b>{map_search_query}</b></p>", unsafe_allow_html=True)
+            # 클릭 시 해당 구역/목적지로 지도가 이동하는 버튼 배치
+            m_col1, m_col2 = st.columns(2)
+            with m_col1:
+                if st.button(f"📍 [목적지 지도] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
+                    st.session_state.map_search_target = f"연천군 {v_dest}"
+                    st.rerun()
+            with m_col2:
+                if st.button(f"🛡️ [구역 지도] {v_zone}", key=f"btn_zone_{idx}", use_container_width=True):
+                    st.session_state.map_search_target = f"연천군 {v_zone}"
+                    st.rerun()
+            st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
