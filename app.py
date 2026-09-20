@@ -218,9 +218,10 @@ with tab1:
             with col_i2:
                 phone = st.text_input("전화번호", value=clean_val("전화번호"), placeholder="예: 010-1234-5678")
                 
+            # 출입 구분 (텍스트 입력 불가, 스크롤 선택 전용)
             default_type = m_data.get("출입구분", "영농인")
             preset_types = ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "임시방문", "기타"]
-            selected_type_preset = st.selectbox("출입 구분", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
+            selected_type_preset = st.selectbox("출입 구분 (선택)", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
             
             col_f1, col_f2 = st.columns(2)
             with col_f1:
@@ -336,28 +337,38 @@ with tab1:
     
     st.markdown("""
         <div class="dashboard-box">
-            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 초소 종합 현황판</h3>
+            <h3 style="margin-top:0; color:#90e0ef; margin-bottom:15px;">📈 종합 현황판</h3>
     """, unsafe_allow_html=True)
     
     all_staying = [r[1] if isinstance(r, tuple) else r for r in st.session_state.visitors_log if (r[1] if isinstance(r, tuple) else r).get("상태") == "체류중"]
     total_count = len(all_staying)
     
+    all_entered = st.session_state.visitors_log
+    total_entered_count = len(all_entered)
+
     all_out = [r for r in st.session_state.visitors_log if r.get("상태") == "퇴영완료"]
     total_out_count = len(all_out)
 
-    col_stat1, col_stat2 = st.columns(2)
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
     with col_stat1:
         st.markdown(f"""
             <div class="stat-card" style="margin-bottom: 5px;">
-                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+                <h4 style="margin:0; color:#90e0ef;">오늘 총 입영 인원</h4>
+                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_entered_count} 명</p>
             </div>
         """, unsafe_allow_html=True)
     with col_stat2:
         st.markdown(f"""
             <div class="stat-card" style="margin-bottom: 5px;">
+                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
+                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_stat3:
+        st.markdown(f"""
+            <div class="stat-card" style="margin-bottom: 5px;">
                 <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
+                <p style="font-size: 24px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -365,6 +376,16 @@ with tab1:
 
     col_d1, col_d2 = st.columns(2)
     with col_d1:
+        st.markdown("##### 🚀 입영 현황 세부 정보")
+        if total_entered_count == 0:
+            st.info("오늘 입영한 인원이 없습니다.")
+        else:
+            enter_type_counts = {}
+            for row in all_entered:
+                enter_type_counts[row.get("출입구분", "기타")] = enter_type_counts.get(row.get("출입구분", "기타"), 0) + 1
+            st.markdown(f"🏷️ **구분별 입영**: {' | '.join([f'**{k}**: {v}명' for k, v in enter_type_counts.items()])}")
+
+    with col_d2:
         st.markdown("##### 🟢 체류 현황 세부 정보")
         if total_count == 0:
             st.info("현재 체류 중인 인원이 없습니다.")
@@ -375,16 +396,6 @@ with tab1:
                 zone_counts[row.get("구역", "미지정")] = zone_counts.get(row.get("구역", "미지정"), 0) + 1
             st.markdown(f"🏷️ **구분별**: {' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()])}")
             st.markdown(f"🛡️ **구역별**: {' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()])}")
-
-    with col_d2:
-        st.markdown("##### 🏁 퇴영 현황 세부 정보")
-        if total_out_count == 0:
-            st.info("오늘 퇴영 완료된 인원이 없습니다.")
-        else:
-            out_type_counts = {}
-            for row in all_out:
-                out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"🏷️ **퇴영 구분별**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -564,7 +575,6 @@ with tab4:
             with t_cols[0]:
                 start_d = t_mem.get('시작일', '-')
                 end_d = t_mem.get('종료일', '-')
-                # 🔥 HTML이 태그로 깨지지 않도록 unsafe_allow_html=True 명시 적용
                 st.markdown(f"**👤 {t_mem['성명']}** | 사유: {t_mem.get('방문사유', '-')} | 기간: {start_d} ~ <span style='color:#ffb703; font-weight:bold;'>{end_d}</span>", unsafe_allow_html=True)
                 st.markdown(f"<span style='color:#aaa; font-size:13px;'>🚗 차량: {t_mem.get('차량번호', '-')} | 📞 연락처: {t_mem.get('전화번호', '-')}</span>", unsafe_allow_html=True)
             with t_cols[1]:
