@@ -282,7 +282,7 @@ with tab1:
                         st.session_state.ambiguous_matches = []
 
         if st.session_state.ambiguous_matches:
-            choice_options = [f"성명: {m.get('성명')} | 구분: {m.get('출입구분', '임시')} | 차량: {m.get('차량번호', '-')" for m in st.session_state.ambiguous_matches]
+            choice_options = [f"성명: {m.get('성명')} | 구분: {m.get('출입구분', '임시')} | 차량: {m.get('차량번호', '-')}" for m in st.session_state.ambiguous_matches]
             selected_choice = st.selectbox("해당하는 인원을 선택하세요", choice_options)
             if st.button("선택 확정", use_container_width=True):
                 chosen_idx = choice_options.index(selected_choice)
