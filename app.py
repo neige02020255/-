@@ -403,7 +403,6 @@ with tab1:
 
     st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-    # 3단 구성으로 변경 (입영 / 체류 / 퇴영 세부 정보)
     col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
         st.markdown("##### 🚀 입영 현황 세부 정보")
@@ -446,8 +445,16 @@ with tab2:
 
     today_str = get_kts_date()
     
+    # 🔍 [추가됨] 오늘 퇴영 목록 전용 검색 기능
+    today_out_query = st.text_input("🔍 오늘 퇴영 인원 검색", placeholder="성명, 연락처, 차량번호 입력", key="search_tab2_today_out")
+
     # 오늘 퇴영된 인원 목록 추출 (역순 정렬)
     today_out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료" and row.get("날짜", today_str) == today_str]
+    
+    # 검색어 필터링 적용
+    if today_out_query:
+        today_out_list = [(i, row) for i, row in today_out_list if today_out_query in str(row.get("성명", "")) or today_out_query in str(row.get("전화번호", "")) or today_out_query in str(row.get("차량", ""))]
+
     today_out_list.reverse()
     
     total_out_count = len(today_out_list)
@@ -466,7 +473,7 @@ with tab2:
     current_page_today_out = today_out_list[start_idx_tout:end_idx_tout]
 
     if not current_page_today_out:
-        st.info("💡 오늘 퇴영 완료된 인원이 없습니다.")
+        st.info("💡 조건에 일치하는 오늘 퇴영 완료된 인원이 없습니다.")
     else:
         for row_idx, row in current_page_today_out:
             st.markdown(f"""
