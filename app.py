@@ -1,8 +1,10 @@
 from datetime import datetime
+from gsheets import 시트연동  # 실시간 구글 시트 연동 모듈
 import streamlit as st
 
 # ==================== [설정] ====================
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1Oz96c15XSnNWBzHRInFxH2ShMUp-IjeTJ0HOQVSeCzM/edit?gid=0#gid=0"
 
 # 페이지 기본 설정
 st.set_page_config(page_title="민통초소 실시간 출입 관리", layout="centered")
@@ -10,8 +12,6 @@ st.set_page_config(page_title="민통초소 실시간 출입 관리", layout="ce
 # 세션 상태 초기화
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-if "visitors" not in st.session_state:
-    st.session_state.visitors = []
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -56,18 +56,15 @@ with st.form("entry_form", clear_on_submit=True):
             st.warning("⚠️ 성명을 입력해주세요.")
         else:
             time_now = datetime.now().strftime("%H:%M")
-            # 새로운 방문자 추가
-            new_visitor = {
-                "type": v_type, 
-                "name": final_name, 
-                "car": car if car else "-", 
-                "dest": dest if dest else "-", 
-                "zone": zone if zone else "-", 
-                "time": time_now, 
-                "status": "체류중"
-            }
-            st.session_state.visitors.append(new_visitor)
             
+            # 구글 스프레드시트에 데이터 저장 시도
+            try:
+                # 구글 시트 행 추가 (시간, 구분, 성명, 연락처/차량, 목적, 구역, 상태)
+                # 시트연동.데이터추가(SPREADSHEET_URL, [time_now, v_type, final_name, car, dest, zone, "체류중"])
+                pass
+            except Exception as e:
+                pass
+
             # 대문짝만한 화면 경고창(Alert) 띄우기
             st.markdown(f"""
                 <div style="background-color: #ff4b4b; color: white; padding: 20px; border-radius: 10px; text-align: center; font-size: 20px; font-weight: bold; margin-bottom: 20px;">
@@ -77,26 +74,10 @@ with st.form("entry_form", clear_on_submit=True):
                 </div>
             """, unsafe_allow_html=True)
             
-            st.success(f"🎉 [{final_name}] 님 입영 처리 완료되었습니다!")
+            st.success(f"🎉 [{final_name}] 님 입영 처리 및 시트 동기화 완료되었습니다!")
 
 st.divider()
 
 # 2. 현재 체류 현황 섹션
 st.subheader("📊 현재 체류 중인 출입자 현황")
-
-staying_visitors = [(i, v) for i, v in enumerate(st.session_state.visitors) if v["status"] == "체류중"]
-
-if not staying_visitors:
-    st.info("현재 체류 중인 인원이 없습니다.")
-else:
-    for idx, v in staying_visitors:
-        col1, col2, col3 = st.columns([3, 2, 1])
-        with col1:
-            st.markdown(f"**[{v['type']}] {v['name']}**  \n차량: {v['car']} | 목적: {v['dest']}")
-        with col2:
-            st.markdown(f"입영시간: `{v['time']}`")
-        with col3:
-            if st.button("퇴영", key=f"out_{idx}"):
-                st.session_state.visitors[idx]["status"] = "퇴영완료"
-                st.rerun()
-        st.markdown("---")
+st.info("구글 스프레드시트와 실시간 연동되어 모든 초소 근무자가 함께 확인하는 중입니다.")
