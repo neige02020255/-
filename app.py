@@ -208,7 +208,7 @@ with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클�
             <b>4. 📋 임시출입자 명단 관리 탭</b><br>
             - 공문 등으로 사전 승인된 방문객을 등록하며, 종료일이 지나면 자동 정리됩니다.<br><br>
             <b>5. 🗺️ 지도 연동 탭</b><br>
-            - MGRS 좌표계 검색 및 '내 위치 MGRS로 변환 이동' 기능을 지원합니다.
+            - MGRS 좌표 및 주소 검색, '내 위치 MGRS로 변환 이동' 기능을 지원합니다.
         </div>
     """, unsafe_allow_html=True)
 
@@ -733,92 +733,9 @@ with tab4:
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
-# ==================== [탭 5: 지도 연동 (MGRS 좌표 및 내 위치 MGRS 변환 지원)] ====================
+# ==================== [탭 5: 지도 연동 (체류 인원 목록 상단 배치 및 주소/MGRS 검색 지원)] ====================
 with tab5:
-    st.subheader("🗺️ MGRS 좌표 기반 지도 검색")
-    st.markdown("MGRS 좌표를 입력하거나 **'📍 내 위치 MGRS로 변환 이동'** 버튼을 눌러 현재 위치를 지도에 즉시 표기할 수 있습니다.")
-
-    # GPS 위경도를 MGRS로 근사 변환하는 자바스크립트 내장 버튼 컴포넌트 추가
-    loc_btn_html = """
-    <div style="margin-bottom: 12px;">
-        <button onclick="getMyLocationMGRS()" style="background-color: #2d6a4f; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: 100%;">
-            📍 🛰️ 내 위치 MGRS 좌표로 변환하여 지도 이동
-        </button>
-        <p id="loc_status" style="color: #90e0ef; font-size: 13px; margin-top: 5px; text-align: center;"></p>
-    </div>
-    <script>
-    // 위경도를 MGRS 100m 단위 근사 문자열로 변환하는 간이 로직 (한반도 52S 지역 기준 중심 연산)
-    function convertLatLngToMGRS(lat, lon) {
-        // 대한민국 전역 대략 Zone 52S 기준 격자 오프셋 산출 (대략적 근사 표기용)
-        const zone = "52S";
-        const letters = "CE"; // 연천/경기 북부 지역 주요 100km 스퀘어 식별자 기본값 매핑
-        
-        // 위도/경도 기반 상대 미터 오프셋 단순 추정 매핑
-        const eastingOffset = Math.floor(((lon - 127.0) * 88800) + 12345) % 100000;
-        const northingOffset = Math.floor(((lat - 38.0) * 111000) + 67890) % 100000;
-        
-        const eStr = String(Math.abs(eastingOffset)).padStart(5, '0');
-        const nStr = String(Math.abs(northingOffset)).padStart(5, '0');
-        
-        return `${zone} ${letters} ${eStr} ${nStr}`;
-    }
-
-    function getMyLocationMGRS() {
-        const statusElem = document.getElementById("loc_status");
-        if (!navigator.geolocation) {
-            statusElem.innerText = "❌ 브라우저가 위치 정보를 지원하지 않습니다.";
-            return;
-        }
-        statusElem.innerText = "📡 위치 정보를 가져오는 중...";
-        navigator.geolocation.getCurrentPosition((position) => {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            
-            // MGRS 코드로 변환
-            const mgrsCode = convertLatLngToMGRS(lat, lon);
-            statusElem.innerText = `✅ 현재 위치 MGRS 변환 성공: ${mgrsCode}`;
-            
-            // 스트림릿 입력창에 자동 반영
-            const inputs = parent.document.querySelectorAll("input[type='text']");
-            for (let input of inputs) {
-                if (input.placeholder && input.placeholder.includes("MGRS")) {
-                    input.value = mgrsCode;
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    break;
-                }
-            }
-        }, (error) => {
-            statusElem.innerText = "❌ 위치 정보를 가져오지 못했습니다. (위치 권한 허용 확인 필요)";
-        }, { enableHighAccuracy: true, timeout: 10000 });
-    }
-    </script>
-    """
-    st.components.v1.html(loc_btn_html, height=90)
-
-    mgrs_input_col1, mgrs_input_col2 = st.columns([3, 1])
-    with mgrs_input_col1:
-        input_mgrs = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890")
-    with mgrs_input_col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        mgrs_search_btn = st.button("🗺️ 지도 검색", use_container_width=True)
-
-    if mgrs_search_btn:
-        st.session_state.map_search_target = input_mgrs
-
-    encoded_mgrs = html.escape(st.session_state.map_search_target)
-
-    mgrs_html = f"""
-    <div style="background-color: #1e1e1e; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333;">
-        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 현재 검색 대상 MGRS 좌표:</span>
-        <span style="color: #ffb703; margin-left: 10px; font-family: monospace; font-size: 16px;">{encoded_mgrs}</span>
-    </div>
-    <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 5px; margin-bottom: 20px;">
-        <iframe width="100%" height="480" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_mgrs}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
-    </div>
-    """
-    st.components.v1.html(mgrs_html, height=540)
-
-    st.markdown("---")
+    # 1. 체류 인원 명단 목적지 확인 (상단으로 이동)
     st.subheader("👥 현재 체류 인원 명단 (클릭하여 목적지 지도 위치 및 MGRS 좌표 확인)")
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
@@ -862,3 +779,88 @@ with tab5:
                 """
                 st.components.v1.html(dest_html, height=520)
             st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
+
+    # 2. MGRS 좌표 및 주소 기반 지도 검색 섹션 (하단으로 이동)
+    st.subheader("🗺️ MGRS 좌표 및 주소 기반 지도 검색")
+    st.markdown("MGRS 좌표 또는 일반 주소를 입력하거나 **'📍 내 위치 MGRS로 변환 이동'** 버튼을 눌러 지도에 즉시 표기할 수 있습니다.")
+
+    # GPS 위경도를 MGRS로 근사 변환하는 자바스크립트 내장 버튼 컴포넌트 추가
+    loc_btn_html = """
+    <div style="margin-bottom: 12px;">
+        <button onclick="getMyLocationMGRS()" style="background-color: #2d6a4f; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; width: 100%;">
+            📍 🛰️ 내 위치 MGRS 좌표로 변환하여 지도 이동
+        </button>
+        <p id="loc_status" style="color: #90e0ef; font-size: 13px; margin-top: 5px; text-align: center;"></p>
+    </div>
+    <script>
+    function convertLatLngToMGRS(lat, lon) {
+        const zone = "52S";
+        const letters = "CE";
+        const eastingOffset = Math.floor(((lon - 127.0) * 88800) + 12345) % 100000;
+        const northingOffset = Math.floor(((lat - 38.0) * 111000) + 67890) % 100000;
+        
+        const eStr = String(Math.abs(eastingOffset)).padStart(5, '0');
+        const nStr = String(Math.abs(northingOffset)).padStart(5, '0');
+        
+        return `${zone} ${letters} ${eStr} ${nStr}`;
+    }
+
+    function getMyLocationMGRS() {
+        const statusElem = document.getElementById("loc_status");
+        if (!navigator.geolocation) {
+            statusElem.innerText = "❌ 브라우저가 위치 정보를 지원하지 않습니다.";
+            return;
+        }
+        statusElem.innerText = "📡 위치 정보를 가져오는 중...";
+        navigator.geolocation.getCurrentPosition((position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const mgrsCode = convertLatLngToMGRS(lat, lon);
+            statusElem.innerText = `✅ 현재 위치 MGRS 변환 성공: ${mgrsCode}`;
+            
+            const inputs = parent.document.querySelectorAll("input[type='text']");
+            for (let input of inputs) {
+                if (input.placeholder && (input.placeholder.includes("MGRS") || input.placeholder.includes("예:"))) {
+                    input.value = mgrsCode;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    break;
+                }
+            }
+        }, (error) => {
+            statusElem.innerText = "❌ 위치 정보를 가져오지 못했습니다. (위치 권한 허용 확인 필요)";
+        }, { enableHighAccuracy: true, timeout: 10000 });
+    }
+    </script>
+    """
+    st.components.v1.html(loc_btn_html, height=90)
+
+    # 검색 방식 선택 (MGRS 좌표 vs 주소 입력)
+    search_mode = st.radio("검색 방식 선택", ["MGRS 좌표", "주소 입력"], horizontal=True)
+
+    mgrs_input_col1, mgrs_input_col2 = st.columns([3, 1])
+    with mgrs_input_col1:
+        if search_mode == "MGRS 좌표":
+            input_target = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890")
+        else:
+            input_target = st.text_input("주소 입력", value="연천군 북삼리 영농지", placeholder="예: 연천군 북삼리 영농지 또는 전곡읍")
+    with mgrs_input_col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        mgrs_search_btn = st.button("🗺️ 지도 검색", use_container_width=True)
+
+    if mgrs_search_btn:
+        st.session_state.map_search_target = input_target
+
+    encoded_target = html.escape(st.session_state.map_search_target)
+
+    mgrs_html = f"""
+    <div style="background-color: #1e1e1e; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333;">
+        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 현재 검색 대상:</span>
+        <span style="color: #ffb703; margin-left: 10px; font-family: monospace; font-size: 16px;">{encoded_target}</span>
+    </div>
+    <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 5px; margin-bottom: 20px;">
+        <iframe width="100%" height="480" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_target}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
+    </div>
+    """
+    st.components.v1.html(mgrs_html, height=540)
