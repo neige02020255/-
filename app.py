@@ -483,7 +483,7 @@ with tab1:
     today_str = get_kts_date()
     today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
     all_staying = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
-    today_out = [r for r in today_entered if r.get("상태"] == "퇴영완료"]
+    today_out = [r for r in today_entered if r.get("상태") == "퇴영완료"]
 
     st.markdown("""
         <div class="dashboard-box">
