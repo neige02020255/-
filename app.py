@@ -403,7 +403,8 @@ with tab1:
 
     st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-    col_d1, col_d2 = st.columns(2)
+    # 3단 구성으로 변경 (입영 / 체류 / 퇴영 세부 정보)
+    col_d1, col_d2, col_d3 = st.columns(3)
     with col_d1:
         st.markdown("##### 🚀 입영 현황 세부 정보")
         if total_entered_count == 0:
@@ -412,7 +413,7 @@ with tab1:
             enter_type_counts = {}
             for row in today_entered:
                 enter_type_counts[row.get("출입구분", "기타")] = enter_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"🏷️ **구분별 입영**: {' | '.join([f'**{k}**: {v}명' for k, v in enter_type_counts.items()])}")
+            st.markdown(f"🏷️ **구분별 입영**:<br>" + '<br>'.join([f'- **{k}**: {v}명' for k, v in enter_type_counts.items()]), unsafe_allow_html=True)
 
     with col_d2:
         st.markdown("##### 🟢 체류 현황 세부 정보")
@@ -423,39 +424,74 @@ with tab1:
             for row in all_staying:
                 type_counts[row.get("출입구분", "기타")] = type_counts.get(row.get("출입구분", "기타"), 0) + 1
                 zone_counts[row.get("구역", "미지정")] = zone_counts.get(row.get("구역", "미지정"), 0) + 1
-            st.markdown(f"🏷️ **구분별**: {' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()])}")
-            st.markdown(f"🛡️ **구역별**: {' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()])}")
+            st.markdown(f"🏷️ **구분별**: " + ' | '.join([f'**{k}**: {v}명' for k, v in type_counts.items()]))
+            st.markdown(f"🛡️ **구역별**: " + ' | '.join([f'**{k}**: {v}명' for k, v in zone_counts.items()]))
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ==================== [탭 2: 퇴영 목록 및 이전 기록 관리] ====================
-with tab2:
-    st.subheader("🏁 퇴영 완료된 목록 및 이전 기록 보관함")
-    st.markdown("1주일이 지난 기록은 서버 파일에 깔끔하게 아카이빙되며, 아래에서 전체 누적 기록을 검색하고 관리하실 수 있습니다.")
-
-    today_str = get_kts_date()
-    out_all = [row for row in st.session_state.visitors_log if row.get("상태") == "퇴영완료" and row.get("날짜", today_str) == today_str]
-    total_out_count = len(out_all)
-    
-    col_ot1, col_ot2 = st.columns([1, 2])
-    with col_ot1:
-        st.markdown(f"""
-            <div class="stat-card">
-                <h4 style="margin:0; color:#90e0ef;">오늘 총 퇴영 인원</h4>
-                <p style="font-size: 32px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_ot2:
+    with col_d3:
         st.markdown("##### 🏁 퇴영 현황 세부 정보")
         if total_out_count == 0:
             st.info("오늘 퇴영 완료된 인원이 없습니다.")
         else:
             out_type_counts = {}
-            for row in out_all:
+            for row in today_out:
                 out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"🏷️ **오늘 퇴영자 구분별 현황**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}")
+            st.markdown(f"🏷️ **구분별 퇴영**:<br>" + '<br>'.join([f'- **{k}**: {v}명' for k, v in out_type_counts.items()]), unsafe_allow_html=True)
 
-    st.markdown("<hr style='margin: 20px 0; border-color: #333;'>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ==================== [탭 2: 퇴영 목록 및 이전 기록 관리] ====================
+with tab2:
+    st.subheader("🏁 오늘 퇴영 완료된 인원 목록")
+    st.markdown("오늘 날짜 기준으로 퇴영이 완료된 인원들의 목록입니다. (한 페이지당 5명씩 표시)")
+
+    today_str = get_kts_date()
+    
+    # 오늘 퇴영된 인원 목록 추출 (역순 정렬)
+    today_out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료" and row.get("날짜", today_str) == today_str]
+    today_out_list.reverse()
+    
+    total_out_count = len(today_out_list)
+    
+    # 퇴영 인원 목록 페이징 처리 (5명씩)
+    items_per_page_tout = 5
+    total_pages_tout = (total_out_count - 1) // items_per_page_tout + 1 if total_out_count > 0 else 1
+    
+    if "today_out_page" not in st.session_state:
+        st.session_state.today_out_page = 1
+    if st.session_state.today_out_page > total_pages_tout:
+        st.session_state.today_out_page = max(1, total_pages_tout)
+
+    start_idx_tout = (st.session_state.today_out_page - 1) * items_per_page_tout
+    end_idx_tout = start_idx_tout + items_per_page_tout
+    current_page_today_out = today_out_list[start_idx_tout:end_idx_tout]
+
+    if not current_page_today_out:
+        st.info("💡 오늘 퇴영 완료된 인원이 없습니다.")
+    else:
+        for row_idx, row in current_page_today_out:
+            st.markdown(f"""
+                <div class="css-card" style="border-left: 5px solid #457b9d;">
+                    <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c; font-weight:bold;">[{row.get('출입구분', '-')}]</span> <span style="float:right; color:#457b9d; font-size:14px; font-weight:bold;">[퇴영완료]</span><br>
+                    🎂 생년월일: {row.get('생년월일', '-')} &nbsp;|&nbsp; 📞 전화: {row.get('전화번호', '-')}<br>
+                    🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
+                    <span style='color:#aaa; font-size:13px;'>📅 일자: {row.get('날짜', '-')} &nbsp;|&nbsp; 📥 입영 시각: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영 시각: <b style='color:#90e0ef;'>{row.get('퇴영시간', '-')}</b></span>
+                </div>
+            """, unsafe_allow_html=True)
+
+        if total_pages_tout > 1:
+            col_tp1, col_tp2, col_tp3 = st.columns([1, 2, 1])
+            with col_tp1:
+                if st.button("◀ 이전", use_container_width=True, key="prev_today_out") and st.session_state.today_out_page > 1:
+                    st.session_state.today_out_page -= 1
+                    st.rerun()
+            with col_tp2:
+                st.markdown(f"<p style='text-align: center; margin-top: 10px;'>{st.session_state.today_out_page} / {total_pages_tout}</p>", unsafe_allow_html=True)
+            with col_tp3:
+                if st.button("다음 ▶", use_container_width=True, key="next_today_out") and st.session_state.today_out_page < total_pages_tout:
+                    st.session_state.today_out_page += 1
+                    st.rerun()
+
+    st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
 
     st.subheader("📁 전체 출입/이전 기록 검색 및 조회")
     checkout_query = st.text_input("🔍 이전 기록 검색", placeholder="성명, 연락처, 차량번호 또는 날짜(YYYY-MM-DD)로 검색", key="search_tab2_checkout")
@@ -467,7 +503,6 @@ with tab2:
 
     all_history.reverse()
     
-    # 🌟 [탭 2 카드 목록 5개씩 페이징 처리 적용]
     items_per_page_t2 = 5
     total_items_t2 = len(all_history)
     total_pages_t2 = (total_items_t2 - 1) // items_per_page_t2 + 1 if total_items_t2 > 0 else 1
