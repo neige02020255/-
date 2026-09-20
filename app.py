@@ -158,6 +158,10 @@ if "temp_members" not in st.session_state:
     st.session_state.temp_members = load_temp_members()
 if "map_search_target" not in st.session_state:
     st.session_state.map_search_target = "52S CE 12345 67890"
+if "emergency_step" not in st.session_state:
+    st.session_state.emergency_step = 0
+if "show_map_panel" not in st.session_state:
+    st.session_state.show_map_panel = False
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -177,13 +181,36 @@ if not st.session_state.logged_in:
                     st.error("❌ 비밀번호가 틀렸습니다.")
     st.stop()
 
-# ==================== [메인 화면 상단] ====================
-st.markdown("""
-    <div>
-        <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
-        <h2 style='margin: 5px 0 0 0;'>민통초소 실시간 출입 관리 시스템</h2>
-    </div>
-""", unsafe_allow_html=True)
+# ==================== [메인 화면 상단 및 우측 상단 패널] ====================
+col_title, col_btn1, col_btn2 = st.columns([6, 1.2, 1.2])
+
+with col_title:
+    st.markdown("""
+        <div>
+            <span class="badge-box">🛡️ 제25보병사단 비룡부대</span>
+            <h2 style='margin: 5px 0 0 0;'>민통초소 실시간 출입 관리 시스템</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
+with col_btn1:
+    st.markdown("<br>", unsafe_allow_html=True)
+    # 빨간색 긴급문자 버튼 스타일
+    st.markdown("""
+        <style>
+        div.stButton > button:first-child {
+            border-color: #ff4b4b;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    if st.button("🚨 긴급문자", use_container_width=True):
+        st.session_state.emergency_step = 1
+        st.rerun()
+
+with col_btn2:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🗺️ 지도연동", use_container_width=True):
+        st.session_state.show_map_panel = not st.session_state.show_map_panel
+        st.rerun()
 
 col_space, col_logout = st.columns([6, 1])
 with col_logout:
@@ -193,31 +220,147 @@ with col_logout:
 
 st.markdown("<hr style='margin: 10px 0 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
-# ----------------- [시스템 사용법 안내 섹션] -----------------
-with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클릭하여 펼치기/접기)</b>", expanded=False):
+# ==================== [긴급 문자 3중 경고 팝업 및 서식 화면] ====================
+@st.dialog("🚨 [긴급 경고 1단계] 발송 확인")
+def step_1_warning():
+    st.error("정말로 긴급 문자를 발송하시겠습니까?")
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        if st.button("취소", use_container_width=True):
+            st.session_state.emergency_step = 0
+            st.rerun()
+    with col_w2:
+        if st.button("확인 (다음)", use_container_width=True, type="primary"):
+            st.session_state.emergency_step = 2
+            st.rerun()
+
+@st.dialog("⚠️ [긴급 경고 2단계] 대상 확인")
+def step_2_warning():
+    staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
+    st.warning(f"⚠️ 경고: 현재 체류 중인 모든 인원 ({len(staying_visitors)}명) 대상 긴급 상황입니다. 계속 진행하시겠습니까?")
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        if st.button("취소", use_container_width=True, key="c2"):
+            st.session_state.emergency_step = 0
+            st.rerun()
+    with col_w2:
+        if st.button("확인 (다음)", use_container_width=True, type="primary", key="o2"):
+            st.session_state.emergency_step = 3
+            st.rerun()
+
+@st.dialog("🚨 [긴급 경고 3단계] 최종 이동")
+def step_3_warning():
+    st.error("🚨 마지막 경고: 문자 작성 서식 화면으로 이동합니다. 이동하시겠습니까?")
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        if st.button("취소", use_container_width=True, key="c3"):
+            st.session_state.emergency_step = 0
+            st.rerun()
+    with col_w2:
+        if st.button("이동하기", use_container_width=True, type="primary", key="o3"):
+            st.session_state.emergency_step = 4
+            st.rerun()
+
+if st.session_state.emergency_step == 1:
+    step_1_warning()
+elif st.session_state.emergency_step == 2:
+    step_2_warning()
+elif st.session_state.emergency_step == 3:
+    step_3_warning()
+
+# 4단계: 긴급 문자 작성 서식 화면
+if st.session_state.emergency_step == 4:
     st.markdown("""
-        <div class="guide-box">
-            <b>1. 🚀 출입 관리 및 현황 탭</b><br>
-            - <b>입영 등록</b>: 방문자 성명을 입력 후 '정보 불러오기'를 누르면 고정/임시 명단과 자동 연동됩니다.<br>
-            - <b>실시간 체류 관리</b>: 현재 체류 중인 인원을 확인하고 퇴영 처리할 수 있습니다.<br>
-            - <b>종합 현황판</b>: 오늘 총 입영, 현재 총 체류, 오늘 총 퇴영 인원 통계를 파악할 수 있습니다.<br><br>
-            <b>2. 🏁 퇴영 목록 탭</b><br>
-            - 오늘 퇴영 완료된 인원 목록을 검색하고, 하단에서 전체 누적 기록을 조회할 수 있습니다.<br><br>
-            <b>3. 📋 고정출입자 명단 관리 탭</b><br>
-            - 이름에 '고정'이 포함된 구분 및 '어로인' 대상자들을 관리합니다.<br><br>
-            <b>4. 📋 임시출입자 명단 관리 탭</b><br>
-            - 공문 등으로 사전 승인된 방문객을 등록하며, 종료일이 지나면 자동 정리됩니다.<br><br>
-            <b>5. 🗺️ 지도 연동 탭</b><br>
-            - MGRS 좌표 및 주소 검색, '내 위치 MGRS로 변환 이동' 기능을 지원합니다.
+        <div style="background-color: #2b1d1d; padding: 20px; border-radius: 10px; border: 2px solid #ff4b4b; margin-bottom: 20px;">
+            <h3 style="color: #ff4b4b; margin-top: 0;">🚨 긴급 상황 문자 작성 서식</h3>
+            <p>현재 체류 중인 인원 전체가 기본 수신대상으로 지정되어 있습니다. 필요한 경우 아래 목록에서 수신 여부를 체크(선택)하여 조정할 수 있습니다.</p>
         </div>
     """, unsafe_allow_html=True)
+
+    staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
+    
+    st.markdown("#### 📋 수신 대상 선택 및 확인 목록")
+    selected_recipients = []
+    
+    if not staying_visitors:
+        st.info("현재 체류 중인 인원이 없습니다.")
+    else:
+        for idx, visitor in enumerate(staying_visitors):
+            v_name = visitor.get("성명", "-")
+            v_phone = visitor.get("전화번호", "-")
+            v_type = visitor.get("출입구분", "-")
+            v_dest = visitor.get("목적", "-")
+            
+            is_checked = st.checkbox(f"[{v_type}] 성명: {v_name} | 연락처: {v_phone} | 목적: {v_dest}", value=True, key=f"recip_chk_{idx}")
+            if is_checked:
+                selected_recipients.append(visitor)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    emergency_msg_content = st.text_area("긴급 전파 내용 입력", placeholder="예: [긴급] 초소 인근 비상 상황 발생. 즉시 안전 지역으로 대피 또는 복귀 바랍니다.", height=120)
+
+    col_es1, col_es2 = st.columns(2)
+    with col_es1:
+        if st.button("📤 최종 긴급 문자 전송", type="primary", use_container_width=True):
+            @st.dialog("🔥 [최종 전송 확인]")
+            def final_send_dialog():
+                st.error(f"선택된 총 {len(selected_recipients)}명에게 긴급 문자를 정말로 전송하시겠습니까? 이 작업은 취소할 수 없습니다.")
+                c_btn1, c_btn2 = st.columns(2)
+                with c_btn1:
+                    if st.button("취소", use_container_width=True, key="fin_cancel"):
+                        st.rerun()
+                with c_btn2:
+                    if st.button("🚀 네, 즉시 발송", use_container_width=True, type="primary", key="fin_send"):
+                        st.success(f"🚨 총 {len(selected_recipients)}명에게 긴급 문자가 성공적으로 전송되었습니다!")
+                        st.session_state.emergency_step = 0
+                        st.rerun()
+            final_send_dialog()
+            
+    with col_es2:
+        if st.button("취소 및 나가기", use_container_width=True):
+            st.session_state.emergency_step = 0
+            st.rerun()
+            
+    st.markdown("<hr style='margin: 30px 0; border-color: #444;'>", unsafe_allow_html=True)
+
+# 우측 상단 지도연동 토글 패널
+if st.session_state.show_map_panel:
+    st.markdown("""
+        <div style="background-color: #1a2332; padding: 20px; border-radius: 10px; border: 2px solid #415a77; margin-bottom: 20px;">
+            <h3 style="color: #90e0ef; margin-top: 0;">🗺️ 빠른 지도 및 MGRS 좌표 검색</h3>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    s_mode = st.radio("검색 방식 선택", ["MGRS 좌표", "주소 입력"], horizontal=True, key="top_map_radio")
+    sc1, sc2 = st.columns([3, 1])
+    with sc1:
+        if s_mode == "MGRS 좌표":
+            top_target = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, key="top_mgrs_txt")
+        else:
+            top_target = st.text_input("주소 입력", value="연천군 북삼리 영농지", key="top_addr_txt")
+    with sc2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("지도 갱신", use_container_width=True, key="top_map_btn"):
+            st.session_state.map_search_target = top_target
+
+    encoded_top_target = html.escape(st.session_state.map_search_target)
+    st.components.v1.html(f"""
+        <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333;">
+            <iframe width="100%" height="400" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_top_target}&t=k&z=15&ie=UTF8&iwloc=&output=embed"></iframe>
+        </div>
+    """, height=420)
+    st.markdown("<hr style='margin: 20px 0;'>", unsafe_allow_html=True)
 
 # ----------------- [탭 메뉴 구성] -----------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 지도 연동"])
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
 with tab1:
-    # 1. 입영 등록 및 실시간 체류 관리 좌우 배치
+    st.markdown("""
+        <div class="guide-box">
+            💡 <b>[사용법 요약]</b> 방문자 성명 입력 후 '정보 불러오기' 시 동명이인이나 공문 인원이 있을 경우 선택 창이 활성화됩니다. 하단에서 체류 인원을 퇴영 처리할 수 있습니다.
+        </div>
+    """, unsafe_allow_html=True)
+
     left_col, right_col = st.columns([1, 1], gap="large")
 
     with left_col:
@@ -405,7 +548,7 @@ with tab1:
                         st.session_state.staying_page += 1
                         st.rerun()
 
-    # 2. 종합 현황판 하단 배치
+    # 종합 현황판 하단 배치
     today_str = get_kts_date()
     today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
     total_entered_count = len(today_entered)
@@ -483,9 +626,13 @@ with tab1:
 
 # ==================== [탭 2: 퇴영 목록 및 이전 기록 관리] ====================
 with tab2:
-    st.subheader("🏁 오늘 퇴영 완료된 인원 목록")
-    st.markdown("오늘 날짜 기준으로 퇴영이 완료된 인원들의 목록입니다. (한 페이지당 5명씩 표시)")
+    st.markdown("""
+        <div class="guide-box">
+            💡 <b>[사용법 요약]</b> 오늘 퇴영 완료된 인원 목록을 검색하고, 하단에서 전체 누적 기록을 조회할 수 있습니다.
+        </div>
+    """, unsafe_allow_html=True)
 
+    st.subheader("🏁 오늘 퇴영 완료된 인원 목록")
     today_str = get_kts_date()
     today_out_query = st.text_input("🔍 오늘 퇴영 인원 검색", placeholder="성명, 연락처, 차량번호 입력", key="search_tab2_today_out")
 
@@ -587,8 +734,13 @@ with tab2:
 
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
+    st.markdown("""
+        <div class="guide-box">
+            💡 <b>[사용법 요약]</b> 고정출입자(어로인 포함) 명단을 등록 및 관리합니다. 삭제 시 반드시 '삭제 확인' 체크박스를 체크한 후 삭제하세요.
+        </div>
+    """, unsafe_allow_html=True)
+
     st.subheader("📋 고정출입자 명단 추가 / 삭제")
-    st.markdown("💡 **관리 대상:** 출입구분에 **'고정'** 글자가 포함된 항목 또는 **'어로인'** 대상자만 필터링되어 관리됩니다.")
     
     with st.form("add_fixed_form", clear_on_submit=True):
         f_name = st.text_input("고정 출입자 성명")
@@ -623,18 +775,15 @@ with tab3:
                 st.rerun()
 
     st.markdown("---")
-    
     fixed_query = st.text_input("🔍 고정출입자 검색", placeholder="성명, 연락처, 차량번호로 검색", key="search_tab3_fixed")
     
     filtered_fixed = []
     for idx, member in enumerate(st.session_state.fixed_members):
         if not member.get("성명", "").strip():
             continue
-        
         m_type = member.get("출입구분", "")
         if not ("고정" in m_type or m_type == "어로인"):
             continue
-
         if fixed_query:
             if not (fixed_query in str(member.get("성명", "")) or fixed_query in str(member.get("전화번호", "")) or fixed_query in str(member.get("차량번호", ""))):
                 continue
@@ -661,8 +810,13 @@ with tab3:
 
 # ==================== [탭 4: 임시출입자 명단 관리] ====================
 with tab4:
+    st.markdown("""
+        <div class="guide-box">
+            💡 <b>[사용법 요약]</b> 사전 승인된 임시출입자를 등록/관리하며, 종료일이 지나면 자동 정리됩니다. 삭제 시 '삭제 확인' 체크 후 조기 삭제할 수 있습니다.
+        </div>
+    """, unsafe_allow_html=True)
+
     st.subheader("📋 임시출입자 명단 관리 (공문 및 사전승인 인원)")
-    st.markdown("공문 등으로 사전 승인된 방문객을 등록합니다. 설정한 **종료일**이 지나면 자동으로 명단에서 정리됩니다.")
 
     with st.form("add_temp_form", clear_on_submit=True):
         t_col1, t_col2 = st.columns(2)
@@ -699,7 +853,6 @@ with tab4:
                 st.rerun()
 
     st.markdown("---")
-    
     temp_query = st.text_input("🔍 임시출입자 검색", placeholder="성명, 사유, 차량번호로 검색", key="search_tab4_temp")
 
     filtered_temp = []
@@ -734,11 +887,15 @@ with tab4:
 
 # ==================== [탭 5: 지도 연동] ====================
 with tab5:
-    # 1. 체류 인원 명단 목적지 확인 (상단 배치)
+    st.markdown("""
+        <div class="guide-box">
+            💡 <b>[사용법 요약]</b> 체류 인원의 목적지 지도 위치를 확인하거나, MGRS 좌표 및 주소 기반으로 지도를 검색할 수 있습니다.
+        </div>
+    """, unsafe_allow_html=True)
+
     st.subheader("👥 현재 체류 인원 명단 (클릭하여 목적지 지도 위치 및 MGRS 좌표 확인)")
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
-    
     map_query_filter = st.text_input("🔍 체류 인원 명단 검색", placeholder="이름, 목적 검색", key="map_member_search_filter")
 
     if map_query_filter:
@@ -781,7 +938,6 @@ with tab5:
 
     st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
 
-    # 2. MGRS 좌표 및 주소 기반 지도 검색 섹션 (하단 배치)
     st.subheader("🗺️ MGRS 좌표 및 주소 기반 지도 검색")
     st.markdown("MGRS 좌표 또는 일반 주소를 입력하거나 **'📍 내 위치 MGRS로 변환 이동'** 버튼을 눌러 지도에 즉시 표기할 수 있습니다.")
 
@@ -834,17 +990,17 @@ with tab5:
     """
     st.components.v1.html(loc_btn_html, height=90)
 
-    search_mode = st.radio("검색 방식 선택", ["MGRS 좌표", "주소 입력"], horizontal=True)
+    search_mode = st.radio("검색 방식 선택", ["MGRS 좌표", "주소 입력"], horizontal=True, key="tab5_search_mode")
 
     mgrs_input_col1, mgrs_input_col2 = st.columns([3, 1])
     with mgrs_input_col1:
         if search_mode == "MGRS 좌표":
-            input_target = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890")
+            input_target = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890", key="tab5_mgrs_input")
         else:
-            input_target = st.text_input("주소 입력", value="연천군 북삼리 영농지", placeholder="예: 연천군 북삼리 영농지 또는 전곡읍")
+            input_target = st.text_input("주소 입력", value="연천군 북삼리 영농지", placeholder="예: 연천군 북삼리 영농지 또는 전곡읍", key="tab5_addr_input")
     with mgrs_input_col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        mgrs_search_btn = st.button("🗺️ 지도 검색", use_container_width=True)
+        mgrs_search_btn = st.button("🗺️ 지도 검색", use_container_width=True, key="tab5_map_search_btn")
 
     if mgrs_search_btn:
         st.session_state.map_search_target = input_target
