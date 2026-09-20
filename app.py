@@ -1,12 +1,75 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import streamlit as st
+import json
+import os
 
-# ==================== [설정] ====================
+# ==================== [설정 및 파일 저장 함수] ====================
 CORRECT_PASSWORD = "1234"  # 접속 비밀번호
+FIXED_MEMBERS_FILE = "fixed_members.json"
 
 # 페이지 기본 설정 (와이드 모드 적용)
 st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
+
+# 고정출입자 명단 로드 함수 (서버 파일에서 읽기)
+def load_fixed_members():
+    initial_members = [
+        {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역", "비고": "특이사항 없음"},
+        {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사인원", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역", "비고": "장비 지참"},
+        {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역", "비고": "공무 출장"}
+    ]
+    
+    last_names = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권", "황", "안", "송", "전", "홍"]
+    first_names = ["민준", "서준", "도윤", "예준", "시우", "하준", "주원", "지호", "준우", "도현", "서연", "서윤", "지우", "서현", "민서", "하윤", "지민", "채원", "지유", "지안"]
+    types_pool = ["영농인", "공사인원", "안보관광", "군인", "고정", "성묘객"]
+    zones_pool = ["A구역", "B구역", "C구역", "DMZ통로", "영농단지"]
+    
+    import random
+    random.seed(42)
+    
+    for i in range(1, 40):
+        l_name = random.choice(last_names)
+        f_name = random.choice(first_names)
+        full_name = f"{l_name}{f_name}"
+        
+        birth_year = random.choice(range(50, 95))
+        birth_date = f"{birth_year}{random.choice(range(1, 13)):02d}{random.choice(range(1, 29)):02d}"
+        phone_num = f"010-{random.choice(range(1000, 10000))}-{random.choice(range(1000, 10000))}"
+        car_num = f"{random.choice(range(10, 100))}{random.choice(['가','나','다','라','마','바','사','아'])}{random.choice(range(1000, 10000))}"
+        v_type = random.choice(types_pool)
+        zone = random.choice(zones_pool)
+        
+        initial_members.append({
+            "성명": full_name,
+            "생년월일": birth_date,
+            "전화번호": phone_num,
+            "출입구분": v_type,
+            "차량번호": car_num,
+            "목적지": f"{zone} 일대 영농/작업",
+            "통제구역": zone,
+            "비고": "-"
+        })
+
+    if os.path.exists(FIXED_MEMBERS_FILE):
+        try:
+            with open(FIXED_MEMBERS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+        except Exception:
+            pass
+            
+    # 파일이 없거나 읽기 실패 시 초기 기본값 저장 후 반환
+    save_fixed_members(initial_members)
+    return initial_members
+
+# 고정출입자 명단 저장 함수 (서버 파일에 기록)
+def save_fixed_members(members):
+    try:
+        with open(FIXED_MEMBERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(members, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"고정 명단 저장 중 오류 발생: {e}")
 
 # ==================== [다크모드 CSS 및 버튼 글자 크기 확대 스타일] ====================
 st.markdown("""
@@ -79,46 +142,9 @@ if "logged_in" not in st.session_state:
 if "visitors_log" not in st.session_state:
     st.session_state.visitors_log = []
 
-# ==================== [초기 고정출입자 대량 생성] ====================
+# 고정출입자 명단 세션 연동 (파일에서 불러오기)
 if "fixed_members" not in st.session_state:
-    initial_members = [
-        {"성명": "김영농", "생년월일": "651012", "전화번호": "010-1234-5678", "출입구분": "영농인", "차량번호": "12가3456", "목적지": "북삼리 영농지", "통제구역": "A구역", "비고": "특이사항 없음"},
-        {"성명": "이공사", "생년월일": "720515", "전화번호": "010-9876-5432", "출입구분": "공사인원", "차량번호": "78나9012", "목적지": "초소 보수공사", "통제구역": "B구역", "비고": "장비 지참"},
-        {"성명": "박병장", "생년월일": "030120", "전화번호": "010-1111-2222", "출입구분": "군인", "차량번호": "지휘차 5521", "목적지": "DMZ 파견근무", "통제구역": "C구역", "비고": "공무 출장"}
-    ]
-    
-    last_names = ["김", "이", "박", "최", "정", "강", "조", "윤", "장", "임", "한", "오", "서", "신", "권", "황", "안", "송", "전", "홍"]
-    first_names = ["민준", "서준", "도윤", "예준", "시우", "하준", "주원", "지호", "준우", "도현", "서연", "서윤", "지우", "서현", "민서", "하윤", "지민", "채원", "지유", "지안"]
-    types_pool = ["영농인", "공사인원", "안보관광", "군인", "고정", "성묘객"]
-    zones_pool = ["A구역", "B구역", "C구역", "DMZ통로", "영농단지"]
-    
-    import random
-    random.seed(42)
-    
-    for i in range(1, 40):
-        l_name = random.choice(last_names)
-        f_name = random.choice(first_names)
-        full_name = f"{l_name}{f_name}"
-        
-        birth_year = random.choice(range(50, 95))
-        birth_date = f"{birth_year}{random.choice(range(1, 13)):02d}{random.choice(range(1, 29)):02d}"
-        phone_num = f"010-{random.choice(range(1000, 10000))}-{random.choice(range(1000, 10000))}"
-        car_num = f"{random.choice(range(10, 100))}{random.choice(['가','나','다','라','마','바','사','아'])}{random.choice(range(1000, 10000))}"
-        v_type = random.choice(types_pool)
-        zone = random.choice(zones_pool)
-        
-        initial_members.append({
-            "성명": full_name,
-            "생년월일": birth_date,
-            "전화번호": phone_num,
-            "출입구분": v_type,
-            "차량번호": car_num,
-            "목적지": f"{zone} 일대 영농/작업",
-            "통제구역": zone,
-            "비고": "-"
-        })
-        
-    st.session_state.fixed_members = initial_members
+    st.session_state.fixed_members = load_fixed_members()
 
 # ==================== [로그인 화면] ====================
 if not st.session_state.logged_in:
@@ -500,7 +526,7 @@ with tab2:
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
     st.subheader("📋 고정출입자 명단 추가 / 삭제")
-    st.markdown("자주 출입하는 인원의 인적사항을 관리합니다.")
+    st.markdown("자주 출입하는 인원의 인적사항을 관리합니다. (추가/삭제 시 서버에 영구 반영됩니다)")
 
     with st.form("add_fixed_form", clear_on_submit=True):
         f_name = st.text_input("고정 출입자 성명")
@@ -520,7 +546,7 @@ with tab3:
         f_submitted = st.form_submit_button("➕ 고정 명단에 추가", use_container_width=True)
         if f_submitted:
             if f_name.strip():
-                st.session_state.fixed_members.append({
+                new_member = {
                     "성명": f_name.strip(),
                     "생년월일": f_birth.strip() if f_birth.strip() else "-",
                     "전화번호": f_phone.strip() if f_phone.strip() else "-",
@@ -529,7 +555,9 @@ with tab3:
                     "목적지": f_dest.strip() if f_dest.strip() else "-",
                     "통제구역": f_zone.strip() if f_zone.strip() else "-",
                     "비고": f_note.strip() if f_note.strip() else "-"
-                })
+                }
+                st.session_state.fixed_members.append(new_member)
+                save_fixed_members(st.session_state.fixed_members)  # 파일에 즉시 저장
                 st.success(f"✅ [{f_name.strip()}] 님이 고정명단에 추가되었습니다!")
                 st.rerun()
             else:
@@ -571,6 +599,7 @@ with tab3:
                 real_idx = st.session_state.fixed_members.index(member)
                 if st.button("삭제", key=f"del_fixed_{real_idx}", use_container_width=True):
                     st.session_state.fixed_members.pop(real_idx)
+                    save_fixed_members(st.session_state.fixed_members)  # 삭제된 내용도 파일에 반영
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
@@ -597,7 +626,7 @@ st.markdown("""
             </li>
             <li><b>고정출입자 관리</b>: 
                 <ul>
-                    <li>[고정출입자 명단 관리] 탭에서 자주 출입하는 영농인, 공사인원 등을 미리 등록하거나 삭제할 수 있습니다.</li>
+                    <li>[고정출입자 명단 관리] 탭에서 자주 출입하는 영농인, 공사인원 등을 미리 등록하거나 삭제할 수 있습니다. <b>(수정 내용이 서버 파일에 저장되어 새로고침해도 유지됩니다.)</b></li>
                 </ul>
             </li>
         </ol>
