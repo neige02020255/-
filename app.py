@@ -65,7 +65,7 @@ def save_temp_members(members):
     except Exception as e:
         st.error(f"임시 명단 저장 중 오류 발생: {e}")
 
-# 출입 기록 로드 및 파일 저장 함수 (1주일 이상 기록 관리 및 용량 최적화 포함)
+# 출입 기록 로드 및 파일 저장 함수
 def load_visitors_log():
     logs = []
     if os.path.exists(VISITORS_LOG_FILE):
@@ -242,7 +242,6 @@ with tab1:
             with col_i2:
                 phone = st.text_input("전화번호", value=clean_val("전화번호"), placeholder="예: 010-1234-5678")
                 
-            # 출입 구분 (텍스트 입력 불가, 스크롤 선택 전용)
             default_type = m_data.get("출입구분", "영농인")
             preset_types = ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "임시방문", "기타"]
             selected_type_preset = st.selectbox("출입 구분 (선택)", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
@@ -288,7 +287,6 @@ with tab1:
         st.subheader("📊 실시간 체류 인원 및 관리")
 
         today_str = get_kts_date()
-        # 오늘 날짜 혹은 체류중인 기록들을 대상 우선으로 필터링
         all_logs = [(i, row) for i, row in enumerate(st.session_state.visitors_log)]
         all_logs.reverse()
 
@@ -371,7 +369,6 @@ with tab1:
     """, unsafe_allow_html=True)
     
     today_str = get_kts_date()
-    # 오늘 입영한 기록 필터링
     today_entered = [r for r in st.session_state.visitors_log if r.get("날짜", today_str) == today_str]
     total_entered_count = len(today_entered)
 
@@ -449,20 +446,20 @@ with tab2:
             </div>
         """, unsafe_allow_html=True)
     with col_ot2:
+        st.markdown("##### 🏁 퇴영 현황 세부 정보")
         if total_out_count == 0:
             st.info("오늘 퇴영 완료된 인원이 없습니다.")
         else:
             out_type_counts = {}
             for row in out_all:
                 out_type_counts[row.get("출입구분", "기타")] = out_type_counts.get(row.get("출입구분", "기타"), 0) + 1
-            st.markdown(f"<br>🏷️ **오늘 퇴영자 구분별 현황**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}", unsafe_allow_html=True)
+            st.markdown(f"🏷️ **오늘 퇴영자 구분별 현황**: {' | '.join([f'**{k}**: {v}명' for k, v in out_type_counts.items()])}")
 
     st.markdown("<hr style='margin: 20px 0; border-color: #333;'>", unsafe_allow_html=True)
 
     st.subheader("📁 전체 출입/이전 기록 검색 및 조회")
     checkout_query = st.text_input("🔍 이전 기록 검색", placeholder="성명, 연락처, 차량번호 또는 날짜(YYYY-MM-DD)로 검색", key="search_tab2_checkout")
 
-    # 전체 기록 대상
     all_history = list(enumerate(st.session_state.visitors_log))
     
     if checkout_query:
@@ -470,10 +467,24 @@ with tab2:
 
     all_history.reverse()
     
-    if not all_history:
+    # 🌟 [탭 2 카드 목록 5개씩 페이징 처리 적용]
+    items_per_page_t2 = 5
+    total_items_t2 = len(all_history)
+    total_pages_t2 = (total_items_t2 - 1) // items_per_page_t2 + 1 if total_items_t2 > 0 else 1
+    
+    if "history_page" not in st.session_state:
+        st.session_state.history_page = 1
+    if st.session_state.history_page > total_pages_t2:
+        st.session_state.history_page = max(1, total_pages_t2)
+
+    start_idx_t2 = (st.session_state.history_page - 1) * items_per_page_t2
+    end_idx_t2 = start_idx_t2 + items_per_page_t2
+    current_page_history = all_history[start_idx_t2:end_idx_t2]
+
+    if not current_page_history:
         st.info("💡 조건에 일치하는 기록이 없습니다.")
     else:
-        for row_idx, row in all_history:
+        for row_idx, row in current_page_history:
             st.markdown(f"""
                 <div class="css-card">
                     <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c;">[{row.get('출입구분', '-')}]</span> <span style="float:right; color:#adb5bd; font-size:14px;">상태: {row.get('상태', '-')}</span><br>
@@ -481,6 +492,19 @@ with tab2:
                     <span style='color:#aaa; font-size:13px;'>📅 일자: {row.get('날짜', '-')} &nbsp;|&nbsp; 📥 입영: {row.get('출입시간', '-')} &nbsp;|&nbsp; 📤 퇴영: <b style='color:#40916c;'>{row.get('퇴영시간', '-')}</b></span>
                 </div>
             """, unsafe_allow_html=True)
+
+        if total_pages_t2 > 1:
+            col_hp1, col_hp2, col_hp3 = st.columns([1, 2, 1])
+            with col_hp1:
+                if st.button("◀ 이전", use_container_width=True, key="prev_history") and st.session_state.history_page > 1:
+                    st.session_state.history_page -= 1
+                    st.rerun()
+            with col_hp2:
+                st.markdown(f"<p style='text-align: center; margin-top: 10px;'>{st.session_state.history_page} / {total_pages_t2}</p>", unsafe_allow_html=True)
+            with col_hp3:
+                if st.button("다음 ▶", use_container_width=True, key="next_history") and st.session_state.history_page < total_pages_t2:
+                    st.session_state.history_page += 1
+                    st.rerun()
 
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
