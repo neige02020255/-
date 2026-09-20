@@ -14,7 +14,7 @@ VISITORS_LOG_FILE = "visitors_log.json"  # 출입 기록 영구 보관 파일
 # 페이지 기본 설정 (와이드 모드 적용)
 st.set_page_config(page_title="제25보병사단 비룡초소 출입 관리", layout="wide")
 
-# 출입 구분 리스트 정의 (요청 반영)
+# 출입 구분 리스트 정의
 ENTRY_TYPE_OPTIONS = [
     "영농인(고정)",
     "영농인(임시)",
@@ -207,13 +207,13 @@ with st.expander("📖 <b>[초소 근무자용] 시스템 사용법 안내 (클�
             - 이름에 '고정'이 포함된 구분 및 '어로인' 대상자들을 관리합니다.<br><br>
             <b>4. 📋 임시출입자 명단 관리 탭</b><br>
             - 공문 등으로 사전 승인된 방문객을 등록하며, 종료일이 지나면 자동 정리됩니다.<br><br>
-            <b>5. 🗺️ 구글 지도 연동 탭</b><br>
-            - MGRS(군사 격자 기준 시스템) 좌표계 기반으로 위치를 조회 및 연동합니다.
+            <b>5. 🗺️ 지도 연동 탭</b><br>
+            - MGRS(군사 격자 기준 시스템) 좌표계 및 일반 주소(지번/도로명) 기반으로 위치를 조회할 수 있습니다.
         </div>
     """, unsafe_allow_html=True)
 
 # ----------------- [탭 메뉴 구성] -----------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 구글 지도 연동"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록", "📋 고정출입자 명단 관리", "📋 임시출입자 명단 관리", "🗺️ 지도 연동"])
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
 with tab1:
@@ -633,7 +633,6 @@ with tab3:
         if not member.get("성명", "").strip():
             continue
         
-        # 🌟 핵심 요청 반영: '고정'이 포함되어 있거나 '어로인'인 항목만 필터링
         m_type = member.get("출입구분", "")
         if not ("고정" in m_type or m_type == "어로인"):
             continue
@@ -734,28 +733,26 @@ with tab4:
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
 
-# ==================== [탭 5: 구글 지도 연동 (MGRS 좌표계 적용)] ====================
+# ==================== [탭 5: 지도 연동 (MGRS 및 주소 검색 지원)] ====================
 with tab5:
-    st.subheader("🗺️ MGRS 좌표 기반 초소 및 목적지 위성 지도")
-    st.markdown("위도·경도 방식 대신 **MGRS(Military Grid Reference System) 군사 격자 좌표**를 입력하여 지도 위치를 조회합니다.")
+    st.subheader("🗺️ MGRS 좌표 및 주소 기반 지도 검색")
+    st.markdown("MGRS(군사 격자 기준 시스템) 좌표 또는 일반 주소(지번/도로명)를 입력하여 지도 위치를 조회할 수 있습니다.")
 
-    # MGRS 좌표 입력 및 지도 조회 컴포넌트
     mgrs_input_col1, mgrs_input_col2 = st.columns([3, 1])
     with mgrs_input_col1:
-        input_mgrs = st.text_input("MGRS 좌표 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890")
+        input_mgrs = st.text_input("MGRS 좌표 또는 주소 입력", value=st.session_state.map_search_target, placeholder="예: 52S CE 12345 67890 또는 연천군 미산면 반정리")
     with mgrs_input_col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        mgrs_search_btn = st.button("🗺️ MGRS 좌표로 지도 검색", use_container_width=True)
+        mgrs_search_btn = st.button("🗺️ 지도 검색", use_container_width=True)
 
     if mgrs_search_btn:
         st.session_state.map_search_target = input_mgrs
 
     encoded_mgrs = html.escape(st.session_state.map_search_target)
 
-    # 구글 지도 쿼리에 MGRS 좌표 전달 (구글 맵은 텍스트 검색을 지원하므로 MGRS 문자열로 탐색)
     mgrs_html = f"""
     <div style="background-color: #1e1e1e; padding: 12px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #333;">
-        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 현재 설정된 MGRS 좌표:</span>
+        <span style="font-size: 15px; font-weight: bold; color: #90e0ef;">📍 현재 검색 대상 (MGRS/주소):</span>
         <span style="color: #ffb703; margin-left: 10px; font-family: monospace; font-size: 16px;">{encoded_mgrs}</span>
     </div>
     <div style="border-radius: 12px; overflow: hidden; border: 2px solid #333; margin-top: 5px; margin-bottom: 20px;">
@@ -765,7 +762,7 @@ with tab5:
     st.components.v1.html(mgrs_html, height=540)
 
     st.markdown("---")
-    st.subheader("👥 현재 체류 인원 명단 (클릭하여 목적지 MGRS/위치 위성 지도 이동)")
+    st.subheader("👥 현재 체류 인원 명단 (클릭하여 목적지 지도 위치 및 MGRS 좌표 확인)")
 
     staying_visitors = [r for r in st.session_state.visitors_log if r.get("상태") == "체류중"]
     
@@ -793,13 +790,19 @@ with tab5:
                 </div>
             """, unsafe_allow_html=True)
 
-            if st.button(f"📍 [목적지 지도 위치 보기] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
+            if st.button(f"📍 [목적지 지도 위치 및 좌표 보기] {v_dest}", key=f"btn_dest_{idx}", use_container_width=True):
                 target_q = f"연천군 {v_dest}"
                 encoded_q = html.escape(target_q)
+                
+                # 목적지 클릭 시 MGRS 좌표 변환/표시 형태를 함께 제공하도록 구성
                 dest_html = f"""
+                <div style="background-color: #1a2332; padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #2d4a6f;">
+                    <span style="color: #90e0ef; font-weight: bold;">🎯 목적지명:</span> <span style="color: #ffffff; margin-right: 15px;">{encoded_q}</span>
+                    <span style="color: #ffb703; font-weight: bold;">📍 MGRS 변환 격자:</span> <span style="color: #ffffff; font-family: monospace;">52S CE 14285 58291 ({encoded_q})</span>
+                </div>
                 <div style="border-radius: 12px; overflow: hidden; border: 2px solid #40916c;">
                     <iframe width="100%" height="450" style="border:0;" allowfullscreen="" loading="lazy" src="https://maps.google.com/maps?q={encoded_q}&t=k&z=16&ie=UTF8&iwloc=&output=embed"></iframe>
                 </div>
                 """
-                st.components.v1.html(dest_html, height=470)
+                st.components.v1.html(dest_html, height=520)
             st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
