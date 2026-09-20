@@ -32,6 +32,14 @@ st.markdown("""
         border: 1px solid #415a77;
         margin-bottom: 10px;
     }
+    .guide-box {
+        background-color: #1a1a2e;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #16213e;
+        margin-top: 30px;
+        margin-bottom: 20px;
+    }
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #ffffff !important;
     }
@@ -151,39 +159,6 @@ tab1, tab2, tab3 = st.tabs(["🚀 출입 관리 및 현황", "🏁 퇴영 목록
 
 # ==================== [탭 1: 출입 관리 및 현황] ====================
 with tab1:
-    # 상단 종합 현황판
-    st.subheader("📈 종합 현황판 (현재 체류 인원)")
-    
-    all_staying = [row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
-    total_count = len(all_staying)
-
-    col_stat1, col_stat2 = st.columns([1, 2])
-    with col_stat1:
-        st.markdown(f"""
-            <div class="stat-card">
-                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
-                <p style="font-size: 32px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_stat2:
-        if total_count == 0:
-            st.info("현재 체류 중인 인원이 없습니다.")
-        else:
-            type_counts = {}
-            zone_counts = {}
-            for row in all_staying:
-                v_t = row.get("출입구분", "기타")
-                zone = row.get("구역", "미지정")
-                type_counts[v_t] = type_counts.get(v_t, 0) + 1
-                zone_counts[zone] = zone_counts.get(zone, 0) + 1
-            
-            t_str = " | ".join([f"**{k}**: {v}명" for k, v in type_counts.items()])
-            z_str = " | ".join([f"**{k}**: {v}명" for k, v in zone_counts.items()])
-            st.markdown(f"🏷️ **구분별**: {t_str}")
-            st.markdown(f"🛡️ **구역별**: {z_str}")
-
-    st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
-
     left_col, right_col = st.columns([1, 1], gap="large")
 
     with left_col:
@@ -251,8 +226,7 @@ with tab1:
             default_type = m_data.get("출입구분", "영농인")
             preset_types = ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "기타"]
             
-            selected_type_preset = st.selectbox("출입 구분 (선택)", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
-            custom_type = st.text_input("출입 구분 직접 수정 (필요시 입력)", value=selected_type_preset)
+            selected_type_preset = st.selectbox("출입 구분", preset_types, index=preset_types.index(default_type) if default_type in preset_types else 0)
             
             col_f1, col_f2 = st.columns(2)
             with col_f1:
@@ -275,7 +249,7 @@ with tab1:
                         "성명": final_name,
                         "생년월일": birth_date if birth_date else "-",
                         "전화번호": phone if phone else "-",
-                        "출입구분": custom_type.strip() if custom_type.strip() else "영농인",
+                        "출입구분": selected_type_preset,
                         "차량": car if car else "-",
                         "목적": dest if dest else "-",
                         "구역": zone if zone else "-",
@@ -289,56 +263,64 @@ with tab1:
                     st.rerun()
 
     with right_col:
-        st.subheader("📊 현재 체류 인원 목록 (최신순)")
+        st.subheader("📊 체류 인원 목록 (최신순)")
 
-        staying_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
-        staying_list.reverse()
+        # 검색 시 체류중 + 퇴영완료 전체 대상에서 검색 가능하도록 수정
+        all_logs = [(i, row) for i, row in enumerate(st.session_state.visitors_log)]
+        all_logs.reverse()
 
-        if not staying_list:
-            st.info("💡 현재 초소 통제구역 내 체류 중인 인원이 없습니다.")
+        with st.form("staying_search_form"):
+            col_s1, col_s2 = st.columns([3, 1])
+            with col_s1:
+                staying_query_input = st.text_input("🔍 통합 검색어", placeholder="이름, 번호, 차량번호 입력 (퇴영자 포함)", label_visibility="collapsed")
+            with col_s2:
+                staying_search_btn = st.form_submit_button("검색", use_container_width=True)
+        
+        if "applied_staying_query" not in st.session_state:
+            st.session_state.applied_staying_query = ""
+
+        if staying_search_btn:
+            st.session_state.applied_staying_query = staying_query_input
+
+        search_query = st.session_state.applied_staying_query
+
+        if search_query:
+            display_list = [(idx, row) for idx, row in all_logs if search_query in str(row.get("성명", "")) or search_query in str(row.get("전화번호", "")) or search_query in str(row.get("차량", ""))]
         else:
-            with st.form("staying_search_form"):
-                col_s1, col_s2 = st.columns([3, 1])
-                with col_s1:
-                    staying_query_input = st.text_input("🔍 검색어", placeholder="이름, 번호, 차량번호 입력", label_visibility="collapsed")
-                with col_s2:
-                    staying_search_btn = st.form_submit_button("검색", use_container_width=True)
-            
-            if "applied_staying_query" not in st.session_state:
-                st.session_state.applied_staying_query = ""
+            display_list = [(i, row) for i, row in all_logs if row.get("상태") == "체류중"]
 
-            if staying_search_btn:
-                st.session_state.applied_staying_query = staying_query_input
+        # --- 5명씩 페이지네이션 적용 ---
+        items_per_page = 5
+        total_items = len(display_list)
+        total_pages = (total_items - 1) // items_per_page + 1 if total_items > 0 else 1
+        
+        if "staying_page" not in st.session_state:
+            st.session_state.staying_page = 1
+        
+        if st.session_state.staying_page > total_pages:
+            st.session_state.staying_page = max(1, total_pages)
 
-            search_query = st.session_state.applied_staying_query
+        if search_query:
+            st.markdown(f"<p style='color: #ffb703; font-size: 14px;'>검색 결과 (퇴영자 포함): <b>{total_items}건</b> (페이지 {st.session_state.staying_page}/{total_pages})</p>", unsafe_allow_html=True)
+        else:
+            st.markdown(f"<p style='color: #aaa; font-size: 14px;'>현재 체류: <b>{total_items}명</b> (페이지 {st.session_state.staying_page}/{total_pages})</p>", unsafe_allow_html=True)
 
-            if search_query:
-                display_list = [(idx, row) for idx, row in staying_list if search_query in str(row.get("성명", "")) or search_query in str(row.get("전화번호", "")) or search_query in str(row.get("차량", ""))]
-            else:
-                display_list = staying_list
+        start_idx = (st.session_state.staying_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        current_page_items = display_list[start_idx:end_idx]
 
-            # --- 15명씩 페이지네이션 적용 ---
-            items_per_page = 15
-            total_items = len(display_list)
-            total_pages = (total_items - 1) // items_per_page + 1 if total_items > 0 else 1
-            
-            if "staying_page" not in st.session_state:
-                st.session_state.staying_page = 1
-            
-            if st.session_state.staying_page > total_pages:
-                st.session_state.staying_page = max(1, total_pages)
-
-            st.markdown(f"<p style='color: #aaa; font-size: 14px;'>총 체류: <b>{total_items}명</b> (페이지 {st.session_state.staying_page}/{total_pages})</p>", unsafe_allow_html=True)
-
-            start_idx = (st.session_state.staying_page - 1) * items_per_page
-            end_idx = start_idx + items_per_page
-            current_page_items = display_list[start_idx:end_idx]
-
+        if not current_page_items:
+            st.info("💡 조건에 일치하는 인원이 없습니다.")
+        else:
             for row_idx, row in current_page_items:
+                is_staying = (row.get("상태") == "체류중")
+                status_color = "#40916c" if is_staying else "#adb5bd"
+                status_text = "체류중" if is_staying else f"퇴영완료 ({row.get('퇴영시간', '-')})"
+
                 with st.container():
                     st.markdown(f"""
-                        <div class="css-card">
-                            <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c; font-weight:bold;">[{row.get('출입구분', '-')}]</span><br>
+                        <div class="css-card" style="border-left: 5px solid {status_color};">
+                            <b style="font-size:18px;">👤 {row.get('성명', '-')}</b> <span style="color:#40916c; font-weight:bold;">[{row.get('출입구분', '-')}]</span> <span style="float:right; color:{status_color}; font-size:14px; font-weight:bold;">[{status_text}]</span><br>
                             🎂 생년월일: {row.get('생년월일', '-')} &nbsp;|&nbsp; 📞 전화: {row.get('전화번호', '-')}<br>
                             🚗 차량: {row.get('차량', '-')} &nbsp;|&nbsp; 📍 목적: {row.get('목적', '-')} &nbsp;|&nbsp; 🛡️ 구역: {row.get('구역', '-')}<br>
                             📝 비고: <b style="color: #ffb703;">{row.get('비고', '-')}</b><br>
@@ -346,10 +328,11 @@ with tab1:
                         </div>
                     """, unsafe_allow_html=True)
                     
-                    if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
-                        st.session_state.visitors_log[row_idx]["상태"] = "퇴영완료"
-                        st.session_state.visitors_log[row_idx]["퇴영시간"] = get_kts_time("%H:%M")
-                        st.rerun()
+                    if is_staying:
+                        if st.button("🏁 퇴영 처리", key=f"out_{row_idx}", use_container_width=True):
+                            st.session_state.visitors_log[row_idx]["상태"] = "퇴영완료"
+                            st.session_state.visitors_log[row_idx]["퇴영시간"] = get_kts_time("%H:%M")
+                            st.rerun()
 
             # 페이지 이동 버튼 컨트롤
             if total_pages > 1:
@@ -367,43 +350,45 @@ with tab1:
                             st.session_state.staying_page += 1
                             st.rerun()
 
+    # ==================== [종합 현황판: 가장 아래쪽 배치] ====================
+    st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
+    st.subheader("📈 종합 현황판 (현재 체류 인원)")
+    
+    all_staying = [row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"]
+    total_count = len(all_staying)
+
+    col_stat1, col_stat2 = st.columns([1, 2])
+    with col_stat1:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#90e0ef;">현재 총 체류 인원</h4>
+                <p style="font-size: 32px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_stat2:
+        if total_count == 0:
+            st.info("현재 체류 중인 인원이 없습니다.")
+        else:
+            type_counts = {}
+            zone_counts = {}
+            for row in all_staying:
+                v_t = row.get("출입구분", "기타")
+                zone = row.get("구역", "미지정")
+                type_counts[v_t] = type_counts.get(v_t, 0) + 1
+                zone_counts[zone] = zone_counts.get(zone, 0) + 1
+            
+            t_str = " | ".join([f"**{k}**: {v}명" for k, v in type_counts.items()])
+            z_str = " | ".join([f"**{k}**: {v}명" for k, v in zone_counts.items()])
+            st.markdown(f"🏷️ **구분별**: {t_str}")
+            st.markdown(f"🛡️ **구역별**: {z_str}")
+
 # ==================== [탭 2: 퇴영 목록] ====================
 with tab2:
-    st.subheader("📈 종합 현황판 (퇴영 완료 및 남은 체류 인원)")
-
     out_list = [(i, row) for i, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "퇴영완료"]
     out_list.reverse()
     total_out_count = len(out_list)
     current_staying_count = len([row for _, row in enumerate(st.session_state.visitors_log) if row.get("상태") == "체류중"])
 
-    col_osat1, col_osat2, col_osat3 = st.columns([1, 1, 2])
-    with col_osat1:
-        st.markdown(f"""
-            <div class="stat-card">
-                <h4 style="margin:0; color:#90e0ef;">총 퇴영 완료</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_osat2:
-        st.markdown(f"""
-            <div class="stat-card">
-                <h4 style="margin:0; color:#ffb703;">현재 남은 체류</h4>
-                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{current_staying_count} 명</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_osat3:
-        if total_out_count == 0:
-            st.info("오늘 퇴영 완료된 인원이 없습니다.")
-        else:
-            out_type_counts = {}
-            for row in out_list:
-                v_t = row.get("출입구분", "기타")
-                out_type_counts[v_t] = out_type_counts.get(v_t, 0) + 1
-            
-            ot_str = " | ".join([f"**{k}**: {v}명" for k, v in out_type_counts.items()])
-            st.markdown(f"<br>🏷️ **퇴영 구분별 통계**: {ot_str}", unsafe_allow_html=True)
-
-    st.markdown("<hr style='margin: 15px 0; border-color: #333;'>", unsafe_allow_html=True)
     st.subheader("🏁 퇴영 완료된 기록 목록")
 
     if not out_list:
@@ -427,8 +412,8 @@ with tab2:
         if out_search:
             display_out_list = [(idx, row) for idx, row in out_list if out_search in str(row.get("성명", "")) or out_search in str(row.get("차량", ""))]
 
-        # --- 퇴영 목록 15명씩 페이지네이션 적용 ---
-        out_items_per_page = 15
+        # --- 퇴영 목록 5명씩 페이지네이션 적용 ---
+        out_items_per_page = 5
         total_out_items = len(display_out_list)
         total_out_pages = (total_out_items - 1) // out_items_per_page + 1 if total_out_items > 0 else 1
         
@@ -470,6 +455,37 @@ with tab2:
                         st.session_state.out_page += 1
                         st.rerun()
 
+    # ==================== [종합 현황판: 가장 아래쪽 배치] ====================
+    st.markdown("<hr style='margin: 30px 0 20px 0; border-color: #444;'>", unsafe_allow_html=True)
+    st.subheader("📈 종합 현황판 (퇴영 완료 및 남은 체류 인원)")
+
+    col_osat1, col_osat2, col_osat3 = st.columns([1, 1, 2])
+    with col_osat1:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#90e0ef;">총 퇴영 완료</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{total_out_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_osat2:
+        st.markdown(f"""
+            <div class="stat-card">
+                <h4 style="margin:0; color:#ffb703;">현재 남은 체류</h4>
+                <p style="font-size: 28px; font-weight: bold; margin: 5px 0 0 0; color: #ffffff;">{current_staying_count} 명</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_osat3:
+        if total_out_count == 0:
+            st.info("오늘 퇴영 완료된 인원이 없습니다.")
+        else:
+            out_type_counts = {}
+            for row in out_list:
+                v_t = row.get("출입구분", "기타")
+                out_type_counts[v_t] = out_type_counts.get(v_t, 0) + 1
+            
+            ot_str = " | ".join([f"**{k}**: {v}명" for k, v in out_type_counts.items()])
+            st.markdown(f"<br>🏷️ **퇴영 구분별 통계**: {ot_str}", unsafe_allow_html=True)
+
 # ==================== [탭 3: 고정출입자 명단 관리] ====================
 with tab3:
     st.subheader("📋 고정출입자 명단 추가 / 삭제")
@@ -485,7 +501,7 @@ with tab3:
             f_dest = st.text_input("목적지", placeholder="예: 북삼리 영농지")
         with col_mf2:
             f_phone = st.text_input("전화번호", placeholder="예: 010-1234-5678")
-            f_type = st.text_input("출입 구분", placeholder="예: 영농인, 군인 등")
+            f_type = st.selectbox("출입 구분", ["영농인", "공사인원", "군인", "안보관광", "고정", "성묘객", "기타"])
             f_zone = st.text_input("통제구역", placeholder="예: A구역")
             
         f_note = st.text_input("기본 비고", placeholder="특이사항 입력")
@@ -497,7 +513,7 @@ with tab3:
                     "성명": f_name.strip(),
                     "생년월일": f_birth.strip() if f_birth.strip() else "-",
                     "전화번호": f_phone.strip() if f_phone.strip() else "-",
-                    "출입구분": f_type.strip() if f_type.strip() else "영농인",
+                    "출입구분": f_type,
                     "차량번호": f_car.strip() if f_car.strip() else "-",
                     "목적지": f_dest.strip() if f_dest.strip() else "-",
                     "통제구역": f_zone.strip() if f_zone.strip() else "-",
@@ -546,3 +562,33 @@ with tab3:
                     st.session_state.fixed_members.pop(real_idx)
                     st.rerun()
             st.markdown("<hr style='margin: 8px 0; border-color: #222;'>", unsafe_allow_html=True)
+
+# ==================== [초소 근무자 사용 방법 안내] ====================
+st.markdown("""
+    <div class="guide-box">
+        <h3>📖 비룡초소 출입통제 시스템 사용 방법</h3>
+        <ol style="line-height: 1.8; color: #ddd;">
+            <li><b>출입자 등록 (입영)</b>: 
+                <ul>
+                    <li>[출입 관리 및 현황] 탭 좌측에서 성명을 입력하고 <b>[정보 불러오기]</b>를 누르면 고정출입자 명단과 자동으로 연동됩니다.</li>
+                    <li>신규 인원이거나 정보 확인 후 하단의 <b>[최종 입영 처리]</b> 버튼을 누르면 즉시 체류 목록에 추가됩니다.</li>
+                </ul>
+            </li>
+            <li><b>퇴영 처리</b>: 
+                <ul>
+                    <li>[출입 관리 및 현황] 탭 우측의 체류 인원 카드 하단에 있는 <b>[퇴영 처리]</b> 버튼을 누르면 즉시 퇴영 완료 처리되며 [퇴영 목록] 탭으로 이동합니다.</li>
+                </ul>
+            </li>
+            <li><b>통합 검색 활용</b>: 
+                <ul>
+                    <li>체류 인원 목록 검색창에 이름을 입력하면, 현재 체류 중인 인원뿐만 아니라 이미 퇴영 완료된 인원까지 모두 포함하여 통합 검색할 수 있습니다.</li>
+                </ul>
+            </li>
+            <li><b>고정출입자 관리</b>: 
+                <ul>
+                    <li>[고정출입자 명단 관리] 탭에서 자주 출입하는 영농인, 공사인원 등을 미리 등록하거나 삭제할 수 있습니다.</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+""", unsafe_allow_html=True)
